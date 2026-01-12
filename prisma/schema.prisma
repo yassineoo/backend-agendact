@@ -1,0 +1,656 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===========================================
+// ENUMS
+// ===========================================
+
+enum UserRole {
+  SUPER_ADMIN
+  CT_ADMIN
+  EMPLOYEE
+  CLIENT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  CANCELLED
+  EXPIRED
+}
+
+enum ClientType {
+  NORMAL
+  PROFESSIONAL
+}
+
+enum VehicleType {
+  CAR
+  MOTORCYCLE
+  TRUCK
+  BUS
+  TRAILER
+  OTHER
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  ELECTRIC
+  HYBRID
+  GAS
+  OTHER
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum InspectionResult {
+  PASSED
+  FAILED
+  CONDITIONAL
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  CHECK
+  ONLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum NotificationType {
+  RESERVATION
+  PAYMENT
+  SYSTEM
+  REMINDER
+  CHAT
+}
+
+enum EmailTemplateType {
+  CONFIRMATION
+  REMINDER
+  RESULT
+  INVOICE
+  WELCOME
+  CUSTOM
+}
+
+// ===========================================
+// MODELS
+// ===========================================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  phone         String?
+  avatar        String?
+  role          UserRole  @default(CLIENT)
+  isActive      Boolean   @default(true) @map("is_active")
+  emailVerified Boolean   @default(false) @map("email_verified")
+  lastLogin     DateTime? @map("last_login")
+  
+  // Password reset
+  passwordResetToken   String?   @map("password_reset_token")
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  
+  // Relations
+  ctCenterId           String?           @map("ct_center_id")
+  ctCenter             CTCenter?         @relation(fields: [ctCenterId], references: [id])
+  ownedCenters         CTCenter[]        @relation("CTCenterOwner")
+  assignedReservations Reservation[]     @relation("EmployeeReservations")
+  notifications        Notification[]
+  sentMessages         ChatMessage[]     @relation("SentMessages")
+  receivedMessages     ChatMessage[]     @relation("ReceivedMessages")
+  auditLogs            AuditLog[]
+  uploadedDocuments    Document[]
+  refreshTokens        RefreshToken[]
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([email])
+  @@index([ctCenterId])
+  @@map("users")
+}
+
+model CTCenter {
+  id              String  @id @default(uuid())
+  name            String
+  slug            String  @unique
+  address         String
+  city            String
+  postalCode      String  @map("postal_code")
+  phone           String
+  email           String
+  siren           String?
+  siret           String?
+  approvalNumber  String? @map("approval_number")
+  brand           String?
+  logo            String?
+  coverImage      String? @map("cover_image")
+  description     String?
+  latitude        Float?
+  longitude       Float?
+  timezone        String  @default("Europe/Paris")
+  currency        String  @default("EUR")
+  openingHours    Json?   @map("opening_hours")
+  isActive        Boolean @default(true) @map("is_active")
+  
+  // Owner relation
+  ownerId String @map("owner_id")
+  owner   User   @relation("CTCenterOwner", fields: [ownerId], references: [id])
+  
+  // Relations
+  users          User[]
+  subscriptions  Subscription[]
+  clients        Client[]
+  vehicles       Vehicle[]
+  categories     Category[]
+  reservations   Reservation[]
+  payments       Payment[]
+  invoices       Invoice[]
+  holidays       Holiday[]
+  promotions     Promotion[]
+  emailTemplates EmailTemplate[]
+  smsTemplates   SMSTemplate[]
+  smsUsage       SmsUsage[]
+  chatMessages   ChatMessage[]
+  settings       Setting[]
+  auditLogs      AuditLog[]
+  documents      Document[]
+  landingPage    LandingPage?
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([slug])
+  @@index([city])
+  @@index([isActive])
+  @@map("ct_centers")
+}
+
+model SubscriptionPlan {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  duration    Int      // days
+  features    Json     @default("[]")
+  maxUsers    Int      @default(5) @map("max_users")
+  maxVehicles Int?     @map("max_vehicles")
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  
+  subscriptions Subscription[]
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id            String             @id @default(uuid())
+  ctCenterId    String             @map("ct_center_id")
+  planId        String             @map("plan_id")
+  status        SubscriptionStatus @default(PENDING)
+  startDate     DateTime           @map("start_date")
+  endDate       DateTime           @map("end_date")
+  amount        Decimal            @db.Decimal(10, 2)
+  paymentMethod PaymentMethod?     @map("payment_method")
+  autoRenew     Boolean            @default(false) @map("auto_renew")
+  
+  ctCenter CTCenter         @relation(fields: [ctCenterId], references: [id])
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id])
+  payments Payment[]
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([ctCenterId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model Client {
+  id            String     @id @default(uuid())
+  ctCenterId    String     @map("ct_center_id")
+  userId        String?    @unique @map("user_id")
+  type          ClientType @default(NORMAL)
+  companyName   String?    @map("company_name")
+  firstName     String     @map("first_name")
+  lastName      String     @map("last_name")
+  email         String
+  phone         String?
+  address       String?
+  city          String?
+  postalCode    String?    @map("postal_code")
+  notes         String?
+  loyaltyPoints Int        @default(0) @map("loyalty_points")
+  customFields  Json?      @map("custom_fields")
+  
+  ctCenter     CTCenter      @relation(fields: [ctCenterId], references: [id])
+  vehicles     Vehicle[]
+  reservations Reservation[]
+  invoices     Invoice[]
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([ctCenterId])
+  @@index([email])
+  @@map("clients")
+}
+
+model Vehicle {
+  id                   String            @id @default(uuid())
+  clientId             String            @map("client_id")
+  ctCenterId           String            @map("ct_center_id")
+  plateNumber          String            @map("plate_number")
+  brand                String
+  model                String
+  year                 Int?
+  vin                  String?
+  type                 VehicleType       @default(CAR)
+  fuelType             FuelType?         @map("fuel_type")
+  registrationDate     DateTime?         @map("registration_date")
+  lastInspectionDate   DateTime?         @map("last_inspection_date")
+  lastInspectionResult InspectionResult? @map("last_inspection_result")
+  nextInspectionDue    DateTime?         @map("next_inspection_due")
+  mileage              Int?
+  color                String?
+  notes                String?
+  
+  client       Client        @relation(fields: [clientId], references: [id])
+  ctCenter     CTCenter      @relation(fields: [ctCenterId], references: [id])
+  reservations Reservation[]
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([ctCenterId, plateNumber])
+  @@index([clientId])
+  @@index([plateNumber])
+  @@map("vehicles")
+}
+
+model Category {
+  id          String  @id @default(uuid())
+  ctCenterId  String  @map("ct_center_id")
+  name        String
+  description String?
+  color       String  @default("#3B82F6")
+  icon        String?
+  duration    Int     @default(30) // minutes
+  price       Decimal @db.Decimal(10, 2)
+  isActive    Boolean @default(true) @map("is_active")
+  sortOrder   Int     @default(0) @map("sort_order")
+  
+  ctCenter     CTCenter      @relation(fields: [ctCenterId], references: [id])
+  reservations Reservation[]
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([ctCenterId])
+  @@map("categories")
+}
+
+model Reservation {
+  id           String            @id @default(uuid())
+  ctCenterId   String            @map("ct_center_id")
+  clientId     String            @map("client_id")
+  vehicleId    String            @map("vehicle_id")
+  categoryId   String            @map("category_id")
+  employeeId   String?           @map("employee_id")
+  date         DateTime          @db.Date
+  startTime    DateTime          @map("start_time")
+  endTime      DateTime          @map("end_time")
+  status       ReservationStatus @default(PENDING)
+  result       InspectionResult?
+  notes        String?
+  report       Json?
+  reminderSent Boolean           @default(false) @map("reminder_sent")
+  bookingCode  String?           @unique @map("booking_code")
+  
+  ctCenter CTCenter  @relation(fields: [ctCenterId], references: [id])
+  client   Client    @relation(fields: [clientId], references: [id])
+  vehicle  Vehicle   @relation(fields: [vehicleId], references: [id])
+  category Category  @relation(fields: [categoryId], references: [id])
+  employee User?     @relation("EmployeeReservations", fields: [employeeId], references: [id])
+  payments Payment[]
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([ctCenterId])
+  @@index([clientId])
+  @@index([date])
+  @@index([status])
+  @@map("reservations")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  ctCenterId     String        @map("ct_center_id")
+  reservationId  String?       @map("reservation_id")
+  subscriptionId String?       @map("subscription_id")
+  amount         Decimal       @db.Decimal(10, 2)
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  transactionId  String?       @map("transaction_id")
+  invoiceNumber  String?       @map("invoice_number")
+  notes          String?
+  paidAt         DateTime?     @map("paid_at")
+  
+  ctCenter     CTCenter      @relation(fields: [ctCenterId], references: [id])
+  reservation  Reservation?  @relation(fields: [reservationId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  invoice      Invoice?
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ctCenterId])
+  @@index([status])
+  @@map("payments")
+}
+
+model Invoice {
+  id         String        @id @default(uuid())
+  paymentId  String?       @unique @map("payment_id")
+  ctCenterId String        @map("ct_center_id")
+  clientId   String        @map("client_id")
+  number     String        @unique
+  items      Json          @default("[]")
+  subtotal   Decimal       @db.Decimal(10, 2)
+  taxRate    Decimal       @default(20) @db.Decimal(5, 2) @map("tax_rate")
+  taxAmount  Decimal       @db.Decimal(10, 2) @map("tax_amount")
+  total      Decimal       @db.Decimal(10, 2)
+  status     InvoiceStatus @default(DRAFT)
+  dueDate    DateTime?     @map("due_date")
+  paidAt     DateTime?     @map("paid_at")
+  notes      String?
+  
+  payment  Payment?  @relation(fields: [paymentId], references: [id])
+  ctCenter CTCenter  @relation(fields: [ctCenterId], references: [id])
+  client   Client    @relation(fields: [clientId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ctCenterId])
+  @@index([number])
+  @@map("invoices")
+}
+
+model Holiday {
+  id          String    @id @default(uuid())
+  ctCenterId  String    @map("ct_center_id")
+  name        String
+  date        DateTime  @db.Date
+  endDate     DateTime? @db.Date @map("end_date")
+  isRecurring Boolean   @default(false) @map("is_recurring")
+  isActive    Boolean   @default(true) @map("is_active")
+  
+  ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ctCenterId])
+  @@index([date])
+  @@map("holidays")
+}
+
+model Promotion {
+  id            String       @id @default(uuid())
+  ctCenterId    String       @map("ct_center_id")
+  name          String
+  description   String?
+  discountType  DiscountType @map("discount_type")
+  discountValue Decimal      @db.Decimal(10, 2) @map("discount_value")
+  code          String?
+  startDate     DateTime     @map("start_date")
+  endDate       DateTime     @map("end_date")
+  usageLimit    Int?         @map("usage_limit")
+  usedCount     Int          @default(0) @map("used_count")
+  isActive      Boolean      @default(true) @map("is_active")
+  
+  ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([ctCenterId, code])
+  @@index([ctCenterId])
+  @@index([code])
+  @@map("promotions")
+}
+
+model EmailTemplate {
+  id         String            @id @default(uuid())
+  ctCenterId String            @map("ct_center_id")
+  name       String
+  subject    String
+  body       String            @db.Text
+  type       EmailTemplateType
+  variables  Json              @default("[]")
+  isActive   Boolean           @default(true) @map("is_active")
+  
+  ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ctCenterId])
+  @@map("email_templates")
+}
+
+model SMSTemplate {
+  id         String  @id @default(uuid())
+  ctCenterId String  @map("ct_center_id")
+  name       String
+  content    String
+  variables  Json    @default("[]")
+  isActive   Boolean @default(true) @map("is_active")
+  
+  ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ctCenterId])
+  @@map("sms_templates")
+}
+
+model SmsUsage {
+  id         String   @id @default(uuid())
+  ctCenterId String   @map("ct_center_id")
+  month      DateTime @db.Date
+  sentCount  Int      @default(0) @map("sent_count")
+  quota      Int      @default(100)
+  
+  ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([ctCenterId, month])
+  @@map("sms_usage")
+}
+
+model Notification {
+  id      String           @id @default(uuid())
+  userId  String           @map("user_id")
+  title   String
+  message String
+  type    NotificationType
+  isRead  Boolean          @default(false) @map("is_read")
+  data    Json?
+  
+  user User @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model ChatMessage {
+  id         String  @id @default(uuid())
+  ctCenterId String  @map("ct_center_id")
+  senderId   String  @map("sender_id")
+  receiverId String  @map("receiver_id")
+  content    String
+  isRead     Boolean @default(false) @map("is_read")
+  
+  ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
+  sender   User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ctCenterId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@map("chat_messages")
+}
+
+model Setting {
+  id         String @id @default(uuid())
+  ctCenterId String @map("ct_center_id")
+  key        String
+  value      Json
+  
+  ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([ctCenterId, key])
+  @@map("settings")
+}
+
+model AuditLog {
+  id         String  @id @default(uuid())
+  userId     String  @map("user_id")
+  ctCenterId String? @map("ct_center_id")
+  action     String
+  entity     String
+  entityId   String? @map("entity_id")
+  oldData    Json?   @map("old_data")
+  newData    Json?   @map("new_data")
+  ipAddress  String? @map("ip_address")
+  userAgent  String? @map("user_agent")
+  
+  user     User      @relation(fields: [userId], references: [id])
+  ctCenter CTCenter? @relation(fields: [ctCenterId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([ctCenterId])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+model Document {
+  id           String @id @default(uuid())
+  ctCenterId   String @map("ct_center_id")
+  name         String
+  type         String
+  filePath     String @map("file_path")
+  size         Int
+  mimeType     String @map("mime_type")
+  uploadedById String @map("uploaded_by_id")
+  
+  ctCenter   CTCenter @relation(fields: [ctCenterId], references: [id])
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([ctCenterId])
+  @@map("documents")
+}
+
+model LandingPage {
+  id             String  @id @default(uuid())
+  ctCenterId     String  @unique @map("ct_center_id")
+  templateId     Int     @default(1) @map("template_id")
+  config         Json    @default("{}")
+  customDomain   String? @unique @map("custom_domain")
+  isPublished    Boolean @default(false) @map("is_published")
+  seoTitle       String? @map("seo_title")
+  seoDescription String? @map("seo_description")
+  
+  ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("landing_pages")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
