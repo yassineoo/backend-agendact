@@ -1,7 +1,12 @@
 import { PrismaClient, UserRole, SubscriptionStatus, ClientType, VehicleType, ReservationStatus, PaymentStatus, PaymentMethod, InvoiceStatus, EmailTemplateType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+import 'dotenv/config';
 
-const prisma = new PrismaClient();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
     console.log('🌱 Starting seed...');

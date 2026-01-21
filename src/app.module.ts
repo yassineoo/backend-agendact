@@ -15,6 +15,7 @@ import { PromotionsModule } from './promotions/promotions.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SettingsModule } from './settings/settings.module';
 import { UsersModule } from './users/users.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -35,8 +36,10 @@ import { UsersModule } from './users/users.module';
     SettingsModule,
     UsersModule,
     SuperAdminModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule { }
+
