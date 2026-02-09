@@ -32,10 +32,10 @@ export class ReservationsController {
         return this.reservationsService.getDaySchedule(user.ctCenterId, new Date(date));
     }
 
-    @Get('available-slots/:date')
+    @Get('slots')
     async getAvailableSlots(
         @CurrentUser() user: any,
-        @Param('date') date: string,
+        @Query('date') date: string,
         @Query('categoryId') categoryId?: string,
     ) {
         return this.reservationsService.getAvailableSlots(user.ctCenterId, new Date(date), categoryId);

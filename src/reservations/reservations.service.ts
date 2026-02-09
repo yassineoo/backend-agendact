@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReservationDto, UpdateReservationDto, UpdateResultDto, ReservationFilterDto, QuickReservationDto } from './dto';
-import { Prisma, ReservationStatus, ClientType, VehicleType } from '@prisma/client';
+import { Prisma, ReservationStatus, ClientType, VehicleType, UserRole } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -368,6 +368,21 @@ export class ReservationsService {
     }
 
     async getAvailableSlots(ctCenterId: string, date: Date, categoryId?: string) {
+        // Get employees (technicians)
+        const employees = await this.prisma.user.findMany({
+            where: {
+                ctCenterId,
+                role: { in: [UserRole.EMPLOYEE, UserRole.CT_ADMIN] },
+                isActive: true,
+                deletedAt: null,
+            },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+            },
+        });
+
         // Get opening hours from settings
         const center = await this.prisma.cTCenter.findUnique({
             where: { id: ctCenterId },
@@ -377,51 +392,66 @@ export class ReservationsService {
         const openingHours = center?.openingHours as any;
         const todayHours = openingHours?.[dayOfWeek];
 
-        if (!todayHours || todayHours.closed) {
-            return [];
+        if (!todayHours || todayHours.closed || !todayHours.open || !todayHours.close) {
+            return employees.map(emp => ({
+                technicianId: emp.id,
+                technicianName: `${emp.firstName} ${emp.lastName}`,
+                slots: [],
+            }));
         }
 
-        // Get existing reservations
+        // Get existing reservations for the day
         const reservations = await this.prisma.reservation.findMany({
             where: {
                 ctCenterId,
-                date,
+                date: {
+                    gte: new Date(new Date(date).setHours(0, 0, 0, 0)),
+                    lte: new Date(new Date(date).setHours(23, 59, 59, 999)),
+                },
                 status: { notIn: [ReservationStatus.CANCELLED] },
                 deletedAt: null,
             },
         });
 
-        // Generate slots (30 min intervals)
-        const slots: { startTime: string; endTime: string; isAvailable: boolean }[] = [];
         const [openHour, openMin] = todayHours.open.split(':').map(Number);
         const [closeHour, closeMin] = todayHours.close.split(':').map(Number);
 
-        const current = new Date(date);
-        current.setHours(openHour, openMin, 0, 0);
+        // Generate slots for each technician
+        return employees.map(emp => {
+            const empReservations = reservations.filter(r => r.employeeId === emp.id);
+            const slots: { startTime: string; endTime: string; isAvailable: boolean }[] = [];
 
-        const close = new Date(date);
-        close.setHours(closeHour, closeMin, 0, 0);
+            const current = new Date(date);
+            current.setHours(openHour, openMin, 0, 0);
 
-        while (current < close) {
-            const slotStart = new Date(current);
-            const slotEnd = new Date(current);
-            slotEnd.setMinutes(slotEnd.getMinutes() + 30);
+            const close = new Date(date);
+            close.setHours(closeHour, closeMin, 0, 0);
 
-            const isBooked = reservations.some(r => {
-                const resStart = new Date(r.startTime);
-                const resEnd = new Date(r.endTime);
-                return slotStart < resEnd && slotEnd > resStart;
-            });
+            while (current < close) {
+                const slotStart = new Date(current);
+                const slotEnd = new Date(current);
+                slotEnd.setMinutes(slotEnd.getMinutes() + 30);
 
-            slots.push({
-                startTime: `${current.getHours().toString().padStart(2, '0')}:${current.getMinutes().toString().padStart(2, '0')}`,
-                endTime: `${slotEnd.getHours().toString().padStart(2, '0')}:${slotEnd.getMinutes().toString().padStart(2, '0')}`,
-                isAvailable: !isBooked,
-            });
+                const isBooked = empReservations.some(r => {
+                    const resStart = new Date(r.startTime);
+                    const resEnd = new Date(r.endTime);
+                    return slotStart < resEnd && slotEnd > resStart;
+                });
 
-            current.setMinutes(current.getMinutes() + 30);
-        }
+                slots.push({
+                    startTime: `${current.getHours().toString().padStart(2, '0')}:${current.getMinutes().toString().padStart(2, '0')}`,
+                    endTime: `${slotEnd.getHours().toString().padStart(2, '0')}:${slotEnd.getMinutes().toString().padStart(2, '0')}`,
+                    isAvailable: !isBooked,
+                });
 
-        return slots;
+                current.setMinutes(current.getMinutes() + 30);
+            }
+
+            return {
+                technicianId: emp.id,
+                technicianName: `${emp.firstName} ${emp.lastName}`,
+                slots,
+            };
+        });
     }
 }
