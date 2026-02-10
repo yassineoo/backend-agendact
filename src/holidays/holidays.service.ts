@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateHolidayDto, UpdateHolidayDto, HolidayFilterDto } from './dto';
 
 @Injectable()
 export class HolidaysService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private eventEmitter: EventEmitter2,
+    ) { }
 
     async findAll(ctCenterId: string, filter: HolidayFilterDto) {
         const where: any = {
@@ -46,7 +50,7 @@ export class HolidaysService {
     }
 
     async create(ctCenterId: string, dto: CreateHolidayDto) {
-        return this.prisma.holiday.create({
+        const holiday = await this.prisma.holiday.create({
             data: {
                 ...dto,
                 ctCenterId,
@@ -54,6 +58,17 @@ export class HolidaysService {
                 isActive: true,
             },
         });
+
+        // Emit event to cancel overlapping reservations
+        this.eventEmitter.emit('holiday.created', {
+            holidayId: holiday.id,
+            ctCenterId,
+            name: holiday.name,
+            date: holiday.date,
+            endDate: holiday.endDate,
+        });
+
+        return holiday;
     }
 
     async update(ctCenterId: string, id: string, dto: UpdateHolidayDto) {

@@ -675,3 +675,15 @@ model RefreshToken {
   @@index([userId])
   @@map("refresh_tokens")
 }
+
+model SystemSetting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value Json
+  label String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}

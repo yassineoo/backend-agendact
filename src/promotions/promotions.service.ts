@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreatePromotionDto, UpdatePromotionDto, ValidatePromoCodeDto } from './dto';
 import { DiscountType } from '@prisma/client';
 
 @Injectable()
 export class PromotionsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private eventEmitter: EventEmitter2,
+    ) { }
 
     async findAll(ctCenterId: string, includeInactive = false) {
         return this.prisma.promotion.findMany({
@@ -32,15 +36,17 @@ export class PromotionsService {
 
     async create(ctCenterId: string, dto: CreatePromotionDto) {
         // Check for duplicate code
-        const existing = await this.prisma.promotion.findFirst({
-            where: { ctCenterId, code: dto.code, deletedAt: null },
-        });
+        if (dto.code) {
+            const existing = await this.prisma.promotion.findFirst({
+                where: { ctCenterId, code: dto.code, deletedAt: null },
+            });
 
-        if (existing) {
-            throw new ConflictException('كود الخصم مستخدم بالفعل');
+            if (existing) {
+                throw new ConflictException('Ce code promo est déjà utilisé');
+            }
         }
 
-        return this.prisma.promotion.create({
+        const promotion = await this.prisma.promotion.create({
             data: {
                 ctCenterId,
                 name: dto.name,
@@ -55,6 +61,20 @@ export class PromotionsService {
                 usedCount: 0,
             },
         });
+
+        // Emit event to notify clients
+        this.eventEmitter.emit('promotion.created', {
+            promotionId: promotion.id,
+            ctCenterId,
+            name: promotion.name,
+            code: promotion.code,
+            discountType: promotion.discountType,
+            discountValue: Number(promotion.discountValue),
+            startDate: promotion.startDate,
+            endDate: promotion.endDate,
+        });
+
+        return promotion;
     }
 
     async update(ctCenterId: string, id: string, dto: UpdatePromotionDto) {

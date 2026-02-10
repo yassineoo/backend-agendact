@@ -5,6 +5,7 @@ import { SuperAdminSubscriptionsModule } from './subscriptions/subscriptions.mod
 import { SuperAdminPlansModule } from './plans/plans.module';
 import { SuperAdminUsersModule } from './users/users.module';
 import { SuperAdminAuditModule } from './audit/audit.module';
+import { SystemSettingsModule } from './settings/system-settings.module';
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { SuperAdminAuditModule } from './audit/audit.module';
         SuperAdminPlansModule,
         SuperAdminUsersModule,
         SuperAdminAuditModule,
+        SystemSettingsModule,
     ],
     exports: [
         SuperAdminCentersModule,
@@ -22,6 +24,7 @@ import { SuperAdminAuditModule } from './audit/audit.module';
         SuperAdminPlansModule,
         SuperAdminUsersModule,
         SuperAdminAuditModule,
+        SystemSettingsModule,
     ],
 })
 export class SuperAdminModule { }
