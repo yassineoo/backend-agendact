@@ -3,11 +3,11 @@ import { AuthGuard } from '@nestjs/passport';
 import { SettingsService } from './settings.service';
 import { UpdateCTCenterSettingsDto, UpdateOpeningHoursDto } from './dto';
 import { CurrentUser, Roles } from '../auth/decorators';
-import { RolesGuard } from '../auth/guards';
+import { RolesGuard, TenantGuard } from '../auth/guards';
 import { UserRole } from '@prisma/client';
 
 @Controller('settings')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, TenantGuard)
 @Roles(UserRole.CT_ADMIN)
 export class SettingsController {
     constructor(private settingsService: SettingsService) { }

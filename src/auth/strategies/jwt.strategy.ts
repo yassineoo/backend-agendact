@@ -4,11 +4,23 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
+import { Request } from 'express';
 
 export interface JwtPayload {
     sub: string;
     email: string;
     role: UserRole;
+    ctCenterId?: string;
+}
+
+// Extract JWT from cookie first, then Authorization header as fallback
+function extractJwt(req: Request): string | null {
+    // 1. Try cookie
+    const cookieToken = req?.cookies?.accessToken;
+    if (cookieToken) return cookieToken;
+
+    // 2. Fallback to Bearer header
+    return ExtractJwt.fromAuthHeaderAsBearerToken()(req);
 }
 
 @Injectable()
@@ -18,7 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         configService: ConfigService,
     ) {
         super({
-            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            jwtFromRequest: extractJwt,
             ignoreExpiration: false,
             secretOrKey: configService.get<string>('JWT_SECRET') || 'default-secret-change-me',
         });
@@ -34,6 +46,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             throw new UnauthorizedException('المستخدم غير موجود أو غير نشط');
         }
 
-        return user;
+        // Return full user object with ctCenterId from JWT payload
+        // (JWT ctCenterId takes priority — allows center switching)
+        return {
+            ...user,
+            ctCenterId: payload.ctCenterId || user.ctCenterId,
+        };
     }
 }

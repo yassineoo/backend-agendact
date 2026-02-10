@@ -7,8 +7,11 @@ import {
     UseGuards,
     HttpCode,
     HttpStatus,
+    Res,
+    Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import {
     LoginDto,
@@ -27,27 +30,68 @@ export class AuthController {
 
     @Post('login')
     @HttpCode(HttpStatus.OK)
-    async login(@Body() dto: LoginDto) {
-        return this.authService.login(dto);
+    async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+        const tokens = await this.authService.login(dto);
+        this.authService.setAuthCookies(res, tokens);
+        return tokens;
     }
 
     @Post('register')
-    async register(@Body() dto: RegisterDto) {
-        return this.authService.register(dto);
+    async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+        const tokens = await this.authService.register(dto);
+        this.authService.setAuthCookies(res, tokens);
+        return tokens;
     }
 
     @Post('refresh')
     @HttpCode(HttpStatus.OK)
-    async refresh(@Body() dto: RefreshTokenDto) {
-        return this.authService.refreshToken(dto.refreshToken);
+    async refresh(
+        @Body() dto: RefreshTokenDto,
+        @Req() req: Request,
+        @Res({ passthrough: true }) res: Response,
+    ) {
+        // Try cookie first, then body
+        const refreshToken = req.cookies?.refreshToken || dto?.refreshToken;
+        if (!refreshToken) {
+            return { error: 'No refresh token provided' };
+        }
+        const tokens = await this.authService.refreshToken(refreshToken);
+        this.authService.setAuthCookies(res, tokens);
+        return tokens;
     }
 
     @Post('logout')
     @UseGuards(AuthGuard('jwt'))
     @HttpCode(HttpStatus.OK)
-    async logout(@CurrentUser() user: any, @Body() dto?: RefreshTokenDto) {
-        await this.authService.logout(user.id, dto?.refreshToken);
+    async logout(
+        @CurrentUser() user: any,
+        @Req() req: Request,
+        @Res({ passthrough: true }) res: Response,
+        @Body() dto?: RefreshTokenDto,
+    ) {
+        const refreshToken = req.cookies?.refreshToken || dto?.refreshToken;
+        await this.authService.logout(user.id, refreshToken);
+        this.authService.clearAuthCookies(res);
         return { message: 'تم تسجيل الخروج بنجاح' };
+    }
+
+    @Get('session')
+    @UseGuards(AuthGuard('jwt'))
+    async getSession(@CurrentUser() user: any) {
+        return this.authService.getSession(user.id);
+    }
+
+    @Post('switch-center')
+    @UseGuards(AuthGuard('jwt'))
+    @HttpCode(HttpStatus.OK)
+    async switchCenter(
+        @CurrentUser() user: any,
+        @Body() dto: { ctCenterId: string },
+        @Res({ passthrough: true }) res: Response,
+    ) {
+        const tokens = await this.authService.switchCenter(user.id, dto.ctCenterId);
+        this.authService.setAuthCookies(res, tokens);
+        return tokens;
     }
 
     @Post('forgot-password')

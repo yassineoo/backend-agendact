@@ -2,11 +2,11 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { DashboardService } from './dashboard.service';
 import { CurrentUser, Roles } from '../auth/decorators';
-import { RolesGuard } from '../auth/guards';
+import { RolesGuard, TenantGuard } from '../auth/guards';
 import { UserRole } from '@prisma/client';
 
 @Controller('dashboard')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, TenantGuard)
 @Roles(UserRole.CT_ADMIN, UserRole.EMPLOYEE)
 export class DashboardController {
     constructor(private dashboardService: DashboardService) { }

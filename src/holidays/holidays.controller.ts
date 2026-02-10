@@ -3,11 +3,11 @@ import { AuthGuard } from '@nestjs/passport';
 import { HolidaysService } from './holidays.service';
 import { CreateHolidayDto, UpdateHolidayDto, HolidayFilterDto } from './dto';
 import { CurrentUser, Roles } from '../auth/decorators';
-import { RolesGuard } from '../auth/guards';
+import { RolesGuard, TenantGuard } from '../auth/guards';
 import { UserRole } from '@prisma/client';
 
 @Controller('holidays')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, TenantGuard)
 @Roles(UserRole.CT_ADMIN, UserRole.EMPLOYEE)
 export class HolidaysController {
     constructor(private holidaysService: HolidaysService) { }

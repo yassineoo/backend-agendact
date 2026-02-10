@@ -3,11 +3,11 @@ import { AuthGuard } from '@nestjs/passport';
 import { PromotionsService } from './promotions.service';
 import { CreatePromotionDto, UpdatePromotionDto, ValidatePromoCodeDto } from './dto';
 import { CurrentUser, Roles } from '../auth/decorators';
-import { RolesGuard } from '../auth/guards';
+import { RolesGuard, TenantGuard } from '../auth/guards';
 import { UserRole } from '@prisma/client';
 
 @Controller('promotions')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, TenantGuard)
 @Roles(UserRole.CT_ADMIN, UserRole.EMPLOYEE)
 export class PromotionsController {
     constructor(private promotionsService: PromotionsService) { }

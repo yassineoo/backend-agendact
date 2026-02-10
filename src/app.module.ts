@@ -16,6 +16,11 @@ import { PaymentsModule } from './payments/payments.module';
 import { SettingsModule } from './settings/settings.module';
 import { UsersModule } from './users/users.module';
 import { ChatModule } from './chat/chat.module';
+import { StripeModule } from './stripe/stripe.module';
+import { SmsModule } from './sms/sms.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { EmailModule } from './email/email.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -37,9 +42,14 @@ import { ChatModule } from './chat/chat.module';
     UsersModule,
     SuperAdminModule,
     ChatModule,
+    // New modules
+    StripeModule,
+    SmsModule,
+    NotificationsModule,
+    EmailModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule { }
-
