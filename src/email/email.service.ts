@@ -2,73 +2,73 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 interface SweegoEmailPayload {
-    from: { email: string; name?: string };
-    to: { email: string; name?: string }[];
-    subject: string;
-    html: string;
-    text?: string;
+  from: { email: string; name?: string };
+  to: { email: string; name?: string }[];
+  subject: string;
+  html: string;
+  text?: string;
 }
 
 @Injectable()
 export class EmailService {
-    private readonly logger = new Logger(EmailService.name);
-    private readonly apiKey: string;
-    private readonly fromEmail: string;
-    private readonly fromName: string;
-    private readonly apiUrl = 'https://api.sweego.io/send';
+  private readonly logger = new Logger(EmailService.name);
+  private readonly apiKey: string;
+  private readonly fromEmail: string;
+  private readonly fromName: string;
+  private readonly apiUrl = 'https://api.sweego.io/send';
 
-    constructor(private configService: ConfigService) {
-        this.apiKey = this.configService.get<string>('SWEEGO_API_KEY') || '';
-        this.fromEmail = 'no-reply@agendact.com';
-        this.fromName = 'AgendaCT';
+  constructor(private configService: ConfigService) {
+    this.apiKey = this.configService.get<string>('API_KEY_VALUE') || '';
+    this.fromEmail = 'no-reply@agendact.com';
+    this.fromName = 'AgendaCT';
+  }
+
+  async sendEmail(to: string, subject: string, html: string, text?: string): Promise<boolean> {
+    if (!this.apiKey) {
+      this.logger.warn('Sweego API key not configured, skipping email');
+      return false;
     }
 
-    async sendEmail(to: string, subject: string, html: string, text?: string): Promise<boolean> {
-        if (!this.apiKey) {
-            this.logger.warn('Sweego API key not configured, skipping email');
-            return false;
-        }
+    const payload: SweegoEmailPayload = {
+      from: { email: this.fromEmail, name: this.fromName },
+      to: [{ email: to }],
+      subject,
+      html,
+      ...(text ? { text } : {}),
+    };
 
-        const payload: SweegoEmailPayload = {
-            from: { email: this.fromEmail, name: this.fromName },
-            to: [{ email: to }],
-            subject,
-            html,
-            ...(text ? { text } : {}),
-        };
+    try {
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Api-Key': this.apiKey,
+        },
+        body: JSON.stringify(payload),
+      });
 
-        try {
-            const response = await fetch(this.apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Api-Key': this.apiKey,
-                },
-                body: JSON.stringify(payload),
-            });
+      if (!response.ok) {
+        const errorBody = await response.text();
+        this.logger.error(`Sweego email failed: ${response.status} - ${errorBody}`);
+        return false;
+      }
 
-            if (!response.ok) {
-                const errorBody = await response.text();
-                this.logger.error(`Sweego email failed: ${response.status} - ${errorBody}`);
-                return false;
-            }
-
-            this.logger.log(`Email sent to ${to}: ${subject}`);
-            return true;
-        } catch (error: any) {
-            this.logger.error(`Email sending error: ${error.message}`);
-            return false;
-        }
+      this.logger.log(`Email sent to ${to}: ${subject}`);
+      return true;
+    } catch (error: any) {
+      this.logger.error(`Email sending error: ${error.message}`);
+      return false;
     }
+  }
 
-    async sendReservationConfirmation(to: string, data: {
-        clientName: string;
-        date: string;
-        time: string;
-        vehicleInfo: string;
-        centerName: string;
-    }): Promise<boolean> {
-        const html = `
+  async sendReservationConfirmation(to: string, data: {
+    clientName: string;
+    date: string;
+    time: string;
+    vehicleInfo: string;
+    centerName: string;
+  }): Promise<boolean> {
+    const html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -99,16 +99,16 @@ export class EmailService {
 </body>
 </html>`;
 
-        return this.sendEmail(to, `Confirmation de réservation — ${data.centerName}`, html);
-    }
+    return this.sendEmail(to, `Confirmation de réservation — ${data.centerName}`, html);
+  }
 
-    async sendReservationReminder(to: string, data: {
-        clientName: string;
-        date: string;
-        time: string;
-        centerName: string;
-    }): Promise<boolean> {
-        const html = `
+  async sendReservationReminder(to: string, data: {
+    clientName: string;
+    date: string;
+    time: string;
+    centerName: string;
+  }): Promise<boolean> {
+    const html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -138,25 +138,25 @@ export class EmailService {
 </body>
 </html>`;
 
-        return this.sendEmail(to, `Rappel : rendez-vous demain — ${data.centerName}`, html);
-    }
+    return this.sendEmail(to, `Rappel : rendez-vous demain — ${data.centerName}`, html);
+  }
 
-    async sendStatusUpdate(to: string, data: {
-        clientName: string;
-        centerName: string;
-        status: string;
-        statusMessage: string;
-        bookingCode?: string;
-    }): Promise<boolean> {
-        const statusColors: Record<string, string> = {
-            CONFIRMED: '#22c55e',
-            IN_PROGRESS: '#3b82f6',
-            COMPLETED: '#8b5cf6',
-            CANCELLED: '#ef4444',
-        };
-        const color = statusColors[data.status] || '#6b7280';
+  async sendStatusUpdate(to: string, data: {
+    clientName: string;
+    centerName: string;
+    status: string;
+    statusMessage: string;
+    bookingCode?: string;
+  }): Promise<boolean> {
+    const statusColors: Record<string, string> = {
+      CONFIRMED: '#22c55e',
+      IN_PROGRESS: '#3b82f6',
+      COMPLETED: '#8b5cf6',
+      CANCELLED: '#ef4444',
+    };
+    const color = statusColors[data.status] || '#6b7280';
 
-        const html = `
+    const html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -180,18 +180,18 @@ export class EmailService {
 </body>
 </html>`;
 
-        return this.sendEmail(to, `${data.statusMessage} — ${data.centerName}`, html);
-    }
+    return this.sendEmail(to, `${data.statusMessage} — ${data.centerName}`, html);
+  }
 
-    async sendPaymentReceipt(to: string, data: {
-        clientName: string;
-        centerName: string;
-        amount: number;
-        currency: string;
-        date: string;
-        invoiceNumber?: string;
-    }): Promise<boolean> {
-        const html = `
+  async sendPaymentReceipt(to: string, data: {
+    clientName: string;
+    centerName: string;
+    amount: number;
+    currency: string;
+    date: string;
+    invoiceNumber?: string;
+  }): Promise<boolean> {
+    const html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -220,19 +220,19 @@ export class EmailService {
 </body>
 </html>`;
 
-        return this.sendEmail(to, `Reçu de paiement — ${data.centerName}`, html);
-    }
+    return this.sendEmail(to, `Reçu de paiement — ${data.centerName}`, html);
+  }
 
-    async sendPromotionNotification(to: string, data: {
-        clientName: string;
-        centerName: string;
-        promoName: string;
-        promoCode?: string;
-        discountValue: string;
-        startDate: string;
-        endDate: string;
-    }): Promise<boolean> {
-        const html = `
+  async sendPromotionNotification(to: string, data: {
+    clientName: string;
+    centerName: string;
+    promoName: string;
+    promoCode?: string;
+    discountValue: string;
+    startDate: string;
+    endDate: string;
+  }): Promise<boolean> {
+    const html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -262,17 +262,17 @@ export class EmailService {
 </body>
 </html>`;
 
-        return this.sendEmail(to, `${data.promoName} — ${data.centerName}`, html);
-    }
+    return this.sendEmail(to, `${data.promoName} — ${data.centerName}`, html);
+  }
 
-    async sendHolidayNotification(to: string, data: {
-        clientName: string;
-        centerName: string;
-        holidayName: string;
-        date: string;
-        endDate?: string;
-    }): Promise<boolean> {
-        const html = `
+  async sendHolidayNotification(to: string, data: {
+    clientName: string;
+    centerName: string;
+    holidayName: string;
+    date: string;
+    endDate?: string;
+  }): Promise<boolean> {
+    const html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -300,6 +300,6 @@ export class EmailService {
 </body>
 </html>`;
 
-        return this.sendEmail(to, `Fermeture : ${data.holidayName} — ${data.centerName}`, html);
-    }
+    return this.sendEmail(to, `Fermeture : ${data.holidayName} — ${data.centerName}`, html);
+  }
 }

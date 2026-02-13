@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, SubscriptionStatus, ClientType, VehicleType, ReservationStatus, PaymentStatus, PaymentMethod, InvoiceStatus, EmailTemplateType } from '@prisma/client';
+import { PrismaClient, UserRole, SubscriptionStatus, ClientType, VehicleType, ReservationStatus, EmailTemplateType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';

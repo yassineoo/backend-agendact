@@ -15,7 +15,7 @@ export class SmsService {
         const center = await this.prisma.cTCenter.findUnique({ where: { id: ctCenterId } });
         if (!center) return false;
 
-        const apiKey = center.smsApiKey || this.configService.get<string>('SWEEGO_API_KEY');
+        const apiKey = center.smsApiKey || this.configService.get<string>('API_KEY_VALUE');
         if (!apiKey) {
             this.logger.warn(`No SMS API key configured for center ${ctCenterId}`);
             return false;
