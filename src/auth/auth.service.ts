@@ -202,48 +202,63 @@ export class AuthService {
             return; // Don't reveal if email exists
         }
 
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const hashedToken = await bcrypt.hash(resetToken, 10);
+        // Generate 4-digit OTP
+        const otp = Math.floor(1000 + Math.random() * 9000).toString();
+        const hashedOtp = await bcrypt.hash(otp, 10);
 
         await this.prisma.user.update({
             where: { id: user.id },
             data: {
-                passwordResetToken: hashedToken,
-                passwordResetExpires: new Date(Date.now() + 3600000),
+                passwordResetToken: hashedOtp,
+                passwordResetExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
             },
         });
 
-        // TODO: Send email with reset link via EmailService
-        console.log(`Password reset token for ${email}: ${resetToken}`);
+        // TODO: Send email with OTP via EmailService
+        console.log(`Password reset OTP for ${email}: ${otp}`);
     }
 
-    async resetPassword(token: string, newPassword: string): Promise<void> {
-        const users = await this.prisma.user.findMany({
-            where: {
-                passwordResetExpires: { gt: new Date() },
-                passwordResetToken: { not: null },
-            },
+    async verifyResetCode(email: string, code: string): Promise<void> {
+        const user = await this.prisma.user.findUnique({
+            where: { email },
         });
 
-        let validUserId: string | null = null;
-        for (const user of users) {
-            if (user.passwordResetToken) {
-                const isValid = await bcrypt.compare(token, user.passwordResetToken);
-                if (isValid) {
-                    validUserId = user.id;
-                    break;
-                }
-            }
+        if (!user || !user.passwordResetToken || !user.passwordResetExpires) {
+            throw new BadRequestException('رمز التحقق غير صالح أو منتهي');
         }
 
-        if (!validUserId) {
-            throw new BadRequestException('رابط إعادة التعيين غير صالح أو منتهي');
+        if (user.passwordResetExpires < new Date()) {
+            throw new BadRequestException('رمز التحقق منتهي الصلاحية');
+        }
+
+        const isValid = await bcrypt.compare(code, user.passwordResetToken);
+        if (!isValid) {
+            throw new BadRequestException('رمز التحقق غير صحيح');
+        }
+    }
+
+    async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+        const user = await this.prisma.user.findUnique({
+            where: { email },
+        });
+
+        if (!user || !user.passwordResetToken || !user.passwordResetExpires) {
+            throw new BadRequestException('رمز التحقق غير صالح أو منتهي');
+        }
+
+        if (user.passwordResetExpires < new Date()) {
+            throw new BadRequestException('رمز التحقق منتهي الصلاحية');
+        }
+
+        const isValid = await bcrypt.compare(code, user.passwordResetToken);
+        if (!isValid) {
+            throw new BadRequestException('رمز التحقق غير صحيح');
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         await this.prisma.user.update({
-            where: { id: validUserId },
+            where: { id: user.id },
             data: {
                 password: hashedPassword,
                 passwordResetToken: null,

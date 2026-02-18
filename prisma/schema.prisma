@@ -136,7 +136,7 @@ model User {
   notificationPreferences Json @default("{}") @map("notification_preferences")
   
   // Password reset
-  passwordResetToken   String?   @map("password_reset_token")
+  passwordResetToken   String?   @map("password_reset_token") // Stores the 4-digit OTP (hashed)
   passwordResetExpires DateTime? @map("password_reset_expires")
   
   // Relations

@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsBoolean } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsBoolean, IsNotEmpty } from 'class-validator';
 
 export class LoginDto {
     @IsEmail({}, { message: 'البريد الإلكتروني غير صالح' })
@@ -44,13 +44,26 @@ export class ForgotPasswordDto {
     email: string;
 }
 
-export class ResetPasswordDto {
-    @IsString()
-    token: string;
+export class VerifyResetCodeDto {
+    @IsEmail({}, { message: 'البريد الإلكتروني غير صالح' })
+    email: string;
 
     @IsString()
-    @MinLength(8, { message: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' })
-    password: string;
+    @IsNotEmpty({ message: 'رمز التحقق مطلوب' })
+    code: string;
+}
+
+export class ResetPasswordDto {
+    @IsEmail({}, { message: 'البريد الإلكتروني غير صالح' })
+    email: string;
+
+    @IsString()
+    @IsNotEmpty({ message: 'رمز التحقق مطلوب' })
+    code: string;
+
+    @IsString()
+    @MinLength(6, { message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' })
+    newPassword: string;
 }
 
 export class ChangePasswordDto {

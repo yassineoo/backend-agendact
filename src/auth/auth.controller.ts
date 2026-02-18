@@ -18,6 +18,7 @@ import {
     RegisterDto,
     RefreshTokenDto,
     ForgotPasswordDto,
+    VerifyResetCodeDto,
     ResetPasswordDto,
     ChangePasswordDto,
     UpdateProfileDto,
@@ -101,10 +102,17 @@ export class AuthController {
         return { message: 'تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني' };
     }
 
+    @Post('verify-reset-code')
+    @HttpCode(HttpStatus.OK)
+    async verifyResetCode(@Body() dto: VerifyResetCodeDto) {
+        await this.authService.verifyResetCode(dto.email, dto.code);
+        return { message: 'رمز التحقق صحيح' };
+    }
+
     @Post('reset-password')
     @HttpCode(HttpStatus.OK)
     async resetPassword(@Body() dto: ResetPasswordDto) {
-        await this.authService.resetPassword(dto.token, dto.password);
+        await this.authService.resetPassword(dto.email, dto.code, dto.newPassword);
         return { message: 'تم إعادة تعيين كلمة المرور بنجاح' };
     }
 
