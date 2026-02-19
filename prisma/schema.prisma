@@ -9,6 +9,12 @@ datasource db {
   provider = "postgresql"
 }
 
+generator erd {
+  provider        = "prisma-erd-generator"
+  output          = "./ERD.svg"
+  puppeteerConfig = "./puppeteer-config.json"
+}
+
 // ===========================================
 // ENUMS
 // ===========================================

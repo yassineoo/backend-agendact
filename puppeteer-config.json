@@ -1,0 +1,7 @@
+{
+    "executablePath": "/Applications/Comet.app/Contents/MacOS/Comet",
+    "args": [
+        "--no-sandbox",
+        "--disable-setuid-sandbox"
+    ]
+}
