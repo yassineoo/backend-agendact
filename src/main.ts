@@ -31,9 +31,6 @@ async function bootstrap() {
     }),
   );
 
-  // Global prefix
-  app.setGlobalPrefix('api');
-
   // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('AgendaCT API')
@@ -49,12 +46,11 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('docs', app, document);
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`🚀 Server running on http://localhost:${port}`);
-  console.log(`📚 API available at http://localhost:${port}/api`);
-  console.log(`📖 Documentation available at http://localhost:${port}/api/docs`);
+  console.log(`📖 Documentation available at http://localhost:${port}/docs`);
 }
 bootstrap();
