@@ -2,11 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReservationStatus, PaymentStatus, InspectionResult } from '@prisma/client';
 
+// When ctCenterId is undefined (super admin), omit the filter to aggregate across all centers
+const centerFilter = (ctCenterId?: string) => ctCenterId ? { ctCenterId } : {};
 @Injectable()
 export class DashboardService {
     constructor(private prisma: PrismaService) { }
 
-    async getOverview(ctCenterId: string) {
+    async getOverview(ctCenterId?: string) {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -23,24 +25,24 @@ export class DashboardService {
             todayReservations,
         ] = await Promise.all([
             this.prisma.reservation.count({
-                where: { ctCenterId, createdAt: { gte: startOfMonth }, deletedAt: null },
+                where: { ...centerFilter(ctCenterId), createdAt: { gte: startOfMonth }, deletedAt: null },
             }),
             this.prisma.reservation.count({
-                where: { ctCenterId, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth }, deletedAt: null },
+                where: { ...centerFilter(ctCenterId), createdAt: { gte: startOfLastMonth, lte: endOfLastMonth }, deletedAt: null },
             }),
             this.prisma.payment.aggregate({
-                where: { ctCenterId, paidAt: { gte: startOfMonth }, status: PaymentStatus.PAID },
+                where: { ...centerFilter(ctCenterId), paidAt: { gte: startOfMonth }, status: PaymentStatus.PAID },
                 _sum: { amount: true },
             }),
             this.prisma.payment.aggregate({
-                where: { ctCenterId, paidAt: { gte: startOfLastMonth, lte: endOfLastMonth }, status: PaymentStatus.PAID },
+                where: { ...centerFilter(ctCenterId), paidAt: { gte: startOfLastMonth, lte: endOfLastMonth }, status: PaymentStatus.PAID },
                 _sum: { amount: true },
             }),
-            this.prisma.client.count({ where: { ctCenterId, deletedAt: null } }),
-            this.prisma.user.count({ where: { ctCenterId, deletedAt: null } }),
+            this.prisma.client.count({ where: { ...centerFilter(ctCenterId), deletedAt: null } }),
+            this.prisma.user.count({ where: { ...centerFilter(ctCenterId), deletedAt: null } }),
             this.prisma.reservation.count({
                 where: {
-                    ctCenterId,
+                    ...centerFilter(ctCenterId),
                     date: { gte: new Date(now.setHours(0, 0, 0, 0)), lte: new Date(now.setHours(23, 59, 59, 999)) },
                     deletedAt: null,
                 },
@@ -65,7 +67,7 @@ export class DashboardService {
         };
     }
 
-    async getReservationChart(ctCenterId: string, days = 7) {
+    async getReservationChart(ctCenterId?: string, days = 7) {
         const data: { date: string; day: string; count: number }[] = [];
         const now = new Date();
 
@@ -79,7 +81,7 @@ export class DashboardService {
 
             const count = await this.prisma.reservation.count({
                 where: {
-                    ctCenterId,
+                    ...centerFilter(ctCenterId),
                     date: { gte: date, lt: nextDate },
                     deletedAt: null,
                 },
@@ -95,16 +97,16 @@ export class DashboardService {
         return data;
     }
 
-    async getReservationStats(ctCenterId: string) {
+    async getReservationStats(ctCenterId?: string) {
         const statuses = await this.prisma.reservation.groupBy({
             by: ['status'],
-            where: { ctCenterId, deletedAt: null },
+            where: { ...centerFilter(ctCenterId), deletedAt: null },
             _count: true,
         });
 
         const results = await this.prisma.reservation.groupBy({
             by: ['result'],
-            where: { ctCenterId, result: { not: null }, deletedAt: null },
+            where: { ...centerFilter(ctCenterId), result: { not: null }, deletedAt: null },
             _count: true,
         });
 
@@ -115,7 +117,7 @@ export class DashboardService {
         };
     }
 
-    async getRevenueChart(ctCenterId: string, months = 6) {
+    async getRevenueChart(ctCenterId?: string, months = 6) {
         const data: { month: string; year: number; revenue: number }[] = [];
         const now = new Date();
 
@@ -125,7 +127,7 @@ export class DashboardService {
 
             const revenue = await this.prisma.payment.aggregate({
                 where: {
-                    ctCenterId,
+                    ...centerFilter(ctCenterId),
                     paidAt: { gte: startOfMonth, lte: endOfMonth },
                     status: PaymentStatus.PAID,
                 },
@@ -142,12 +144,12 @@ export class DashboardService {
         return data;
     }
 
-    async getUpcomingReservations(ctCenterId: string, limit = 5) {
+    async getUpcomingReservations(ctCenterId?: string, limit = 5) {
         const now = new Date();
 
         return this.prisma.reservation.findMany({
             where: {
-                ctCenterId,
+                ...centerFilter(ctCenterId),
                 date: { gte: now },
                 status: { in: [ReservationStatus.PENDING, ReservationStatus.CONFIRMED] },
                 deletedAt: null,

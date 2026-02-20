@@ -10,6 +10,11 @@ export class TenantGuard implements CanActivate {
             throw new ForbiddenException('المستخدم غير مصادق');
         }
 
+        // Super admins can access any center or operate without one
+        if (user.isSuperAdmin) {
+            return true;
+        }
+
         if (!user.ctCenterId) {
             throw new ForbiddenException('لم يتم تحديد مركز الفحص التقني');
         }

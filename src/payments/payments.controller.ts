@@ -8,7 +8,7 @@ import { UserRole } from '@prisma/client';
 
 @Controller('payments')
 @UseGuards(AuthGuard('jwt'), RolesGuard, TenantGuard)
-@Roles(UserRole.CT_ADMIN, UserRole.EMPLOYEE)
+@Roles(UserRole.SUPER_ADMIN, UserRole.CT_ADMIN, UserRole.EMPLOYEE)
 export class PaymentsController {
     constructor(private paymentsService: PaymentsService) { }
 

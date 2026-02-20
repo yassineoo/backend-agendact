@@ -27,7 +27,7 @@ async function main() {
     console.log('🌱 Starting DEVELOPMENT seed...');
     console.log('🗑️  Clearing all data...');
 
-    // Delete in dependency order
+    // Delete in dependency order (CTCenter before User due to ownerId FK)
     await prisma.refreshToken.deleteMany();
     await prisma.auditLog.deleteMany();
     await prisma.notification.deleteMany();
@@ -43,14 +43,16 @@ async function main() {
     await prisma.reservation.deleteMany();
     await prisma.promotion.deleteMany();
     await prisma.holiday.deleteMany();
+    await prisma.prestation.deleteMany();
     await prisma.category.deleteMany();
     await prisma.vehicle.deleteMany();
     await prisma.client.deleteMany();
     await prisma.subscription.deleteMany();
     await prisma.subscriptionPlan.deleteMany();
     await prisma.systemSetting.deleteMany();
-    await prisma.user.deleteMany();
+    await prisma.userInCTCenter.deleteMany();
     await prisma.cTCenter.deleteMany();
+    await prisma.user.deleteMany();
     console.log('✅ Cleared');
 
     // ─── 1. SYSTEM SETTINGS ──────────────────────────────────────────
@@ -102,7 +104,7 @@ async function main() {
         data: {
             email: 'admin@agendact.com', password: await hash('SuperAdmin123!'),
             firstName: 'Super', lastName: 'Admin', phone: '+33600000000',
-            role: UserRole.SUPER_ADMIN, isActive: true, emailVerified: true,
+            role: UserRole.SUPER_ADMIN, isSuperAdmin: true, isActive: true, emailVerified: true,
             lastLogin: daysAgo(0),
         },
     });
@@ -169,6 +171,15 @@ async function main() {
         }),
     ]);
     console.log('👥 Created 3 employees for center 1 (1 inactive)');
+
+    // UserInCTCenter records for center 1
+    await Promise.all([
+        prisma.userInCTCenter.create({ data: { userId: admin1.id, ctCenterId: center1.id, role: UserRole.CT_ADMIN } }),
+        prisma.userInCTCenter.create({ data: { userId: emp1.id, ctCenterId: center1.id, role: UserRole.EMPLOYEE } }),
+        prisma.userInCTCenter.create({ data: { userId: emp2.id, ctCenterId: center1.id, role: UserRole.EMPLOYEE } }),
+        prisma.userInCTCenter.create({ data: { userId: emp3.id, ctCenterId: center1.id, role: UserRole.EMPLOYEE } }),
+    ]);
+    console.log('🔗 Created 4 UserInCTCenter records for center 1');
 
     // Subscription for center 1
     const sub1 = await prisma.subscription.create({
@@ -574,6 +585,13 @@ async function main() {
         },
     });
 
+    // UserInCTCenter records for center 2
+    await Promise.all([
+        prisma.userInCTCenter.create({ data: { userId: admin2.id, ctCenterId: center2.id, role: UserRole.CT_ADMIN } }),
+        prisma.userInCTCenter.create({ data: { userId: emp2c2.id, ctCenterId: center2.id, role: UserRole.EMPLOYEE } }),
+    ]);
+    console.log('🔗 Created 2 UserInCTCenter records for center 2');
+
     // 1 category
     const cat2 = await prisma.category.create({
         data: {
@@ -642,7 +660,16 @@ async function main() {
             amount: starterPlan.price,
         },
     });
+    // UserInCTCenter records for center 3
+    await prisma.userInCTCenter.create({ data: { userId: admin3.id, ctCenterId: center3.id, role: UserRole.CT_ADMIN } });
+
+    // Super admin gets access to all active centers
+    await Promise.all([
+        prisma.userInCTCenter.create({ data: { userId: superAdmin.id, ctCenterId: center1.id, role: UserRole.CT_ADMIN } }),
+        prisma.userInCTCenter.create({ data: { userId: superAdmin.id, ctCenterId: center2.id, role: UserRole.CT_ADMIN } }),
+    ]);
     console.log('🏢 Center 3 (inactive):', center3.name);
+    console.log('🔗 Created UserInCTCenter records for center 3 + super admin');
 
     // ═══════════════════════════════════════════════════════════════════
     console.log('\n✅ Development seed completed!');

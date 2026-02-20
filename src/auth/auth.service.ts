@@ -36,7 +36,13 @@ export class AuthService {
     async login(dto: LoginDto): Promise<TokenResponse> {
         const user = await this.prisma.user.findUnique({
             where: { email: dto.email },
-            include: { ctCenter: true },
+            include: {
+                ctCenter: true,
+                userInCTCenters: {
+                    include: { ctCenter: true },
+                    orderBy: { createdAt: 'asc' },
+                },
+            },
         });
 
         if (!user) {
@@ -58,7 +64,16 @@ export class AuthService {
             data: { lastLogin: new Date() },
         });
 
-        return this.generateTokens(user);
+        // Use UserInCTCenter as source of truth for the default center
+        const defaultMembership = user.userInCTCenters[0];
+        const loginUser = {
+            ...user,
+            ctCenterId: user.ctCenterId || defaultMembership?.ctCenterId || null,
+            ctCenter: user.ctCenter || defaultMembership?.ctCenter || null,
+            // For super admins, keep user.role (SUPER_ADMIN); for others, use membership role
+            role: user.isSuperAdmin ? user.role : (defaultMembership?.role || user.role),
+        };
+        return this.generateTokens(loginUser);
     }
 
     async register(dto: RegisterDto): Promise<TokenResponse> {
@@ -138,34 +153,48 @@ export class AuthService {
         // Build list of accessible centers
         const centers: { id: string; name: string; slug: string; logo: string | null; role?: UserRole }[] = [];
 
-        // Add centers from userInCTCenters (primary source)
-        for (const uc of user.userInCTCenters) {
-            if (!centers.find(x => x.id === uc.ctCenter.id)) {
-                centers.push({ ...uc.ctCenter, role: uc.role });
-            }
-        }
-
-        // If user belongs to a center directly, include it
-        if (user.ctCenter && !centers.find(x => x.id === user.ctCenter!.id)) {
-            centers.push({
-                id: user.ctCenter.id,
-                name: user.ctCenter.name,
-                slug: user.ctCenter.slug,
-                logo: user.ctCenter.logo,
+        // For super admins, show ALL active centers
+        if (user.isSuperAdmin) {
+            const allCenters = await this.prisma.cTCenter.findMany({
+                where: { isActive: true, deletedAt: null },
+                select: { id: true, name: true, slug: true, logo: true },
             });
-        }
-
-        // Add owned centers
-        for (const c of user.ownedCenters) {
-            if (!centers.find(x => x.id === c.id)) {
+            for (const c of allCenters) {
                 centers.push(c);
             }
+        } else {
+            // Add centers from userInCTCenters (primary source)
+            for (const uc of user.userInCTCenters) {
+                if (!centers.find(x => x.id === uc.ctCenter.id)) {
+                    centers.push({ ...uc.ctCenter, role: uc.role });
+                }
+            }
+
+            // If user belongs to a center directly via legacy field, include it
+            if (user.ctCenter && !centers.find(x => x.id === user.ctCenter!.id)) {
+                centers.push({
+                    id: user.ctCenter.id,
+                    name: user.ctCenter.name,
+                    slug: user.ctCenter.slug,
+                    logo: user.ctCenter.logo,
+                });
+            }
+
+            // Add owned centers
+            for (const c of user.ownedCenters) {
+                if (!centers.find(x => x.id === c.id)) {
+                    centers.push(c);
+                }
+            }
         }
+
+        // Determine current center — use JWT/ctCenterId or fall back to first membership
+        const currentCenterId = user.ctCenterId || user.userInCTCenters[0]?.ctCenterId || null;
 
         const { password, passwordResetToken, passwordResetExpires, ...profile } = user;
         return {
             user: profile,
-            currentCenterId: user.ctCenterId,
+            currentCenterId,
             centers,
         };
     }
