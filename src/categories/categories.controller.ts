@@ -14,7 +14,7 @@ import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto, ReorderCategoriesDto } from './dto';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { RolesGuard, TenantGuard } from '../auth/guards';
-import { UserRole } from '@prisma/client';
+import { UserRole, VehicleClass } from '@prisma/client';
 
 @Controller('categories')
 @UseGuards(AuthGuard('jwt'), RolesGuard, TenantGuard)
@@ -26,8 +26,9 @@ export class CategoriesController {
     async findAll(
         @CurrentUser() user: any,
         @Query('includeInactive') includeInactive?: boolean,
+        @Query('vehicleClass') vehicleClass?: VehicleClass,
     ) {
-        return this.categoriesService.findAll(user.ctCenterId, includeInactive);
+        return this.categoriesService.findAll(user.ctCenterId, includeInactive, vehicleClass);
     }
 
     @Get(':id')

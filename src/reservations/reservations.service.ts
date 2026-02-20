@@ -141,7 +141,7 @@ export class ReservationsService {
         startTime.setHours(hours, minutes, 0, 0);
 
         const endTime = new Date(startTime);
-        endTime.setMinutes(endTime.getMinutes() + category.duration);
+        endTime.setMinutes(endTime.getMinutes() + (category.duration || 30));
 
         // Check availability
         const conflicting = await this.prisma.reservation.findFirst({
@@ -250,7 +250,7 @@ export class ReservationsService {
             startTime.setHours(hours, minutes, 0, 0);
 
             const endTime = new Date(startTime);
-            endTime.setMinutes(endTime.getMinutes() + category.duration);
+            endTime.setMinutes(endTime.getMinutes() + (category.duration || 30));
 
             const bookingCode = 'RES-' + crypto.randomBytes(4).toString('hex').toUpperCase();
 

@@ -21,6 +21,7 @@ export interface TokenResponse {
         avatar?: string;
         ctCenterId?: string;
         ctCenterName?: string;
+        isSuperAdmin?: boolean;
     };
 }
 
@@ -122,6 +123,11 @@ export class AuthService {
             include: {
                 ctCenter: true,
                 ownedCenters: { select: { id: true, name: true, slug: true, logo: true } },
+                userInCTCenters: {
+                    include: {
+                        ctCenter: { select: { id: true, name: true, slug: true, logo: true } },
+                    },
+                },
             },
         });
 
@@ -130,10 +136,17 @@ export class AuthService {
         }
 
         // Build list of accessible centers
-        const centers: { id: string; name: string; slug: string; logo: string | null }[] = [];
+        const centers: { id: string; name: string; slug: string; logo: string | null; role?: UserRole }[] = [];
 
-        // If user belongs to a center, include it
-        if (user.ctCenter) {
+        // Add centers from userInCTCenters (primary source)
+        for (const uc of user.userInCTCenters) {
+            if (!centers.find(x => x.id === uc.ctCenter.id)) {
+                centers.push({ ...uc.ctCenter, role: uc.role });
+            }
+        }
+
+        // If user belongs to a center directly, include it
+        if (user.ctCenter && !centers.find(x => x.id === user.ctCenter!.id)) {
             centers.push({
                 id: user.ctCenter.id,
                 name: user.ctCenter.name,
@@ -164,6 +177,7 @@ export class AuthService {
             include: {
                 ctCenter: true,
                 ownedCenters: { select: { id: true } },
+                userInCTCenters: { select: { ctCenterId: true, role: true } },
             },
         });
 
@@ -171,10 +185,12 @@ export class AuthService {
             throw new UnauthorizedException('المستخدم غير موجود');
         }
 
+        const memberRecord = user.userInCTCenters.find(uc => uc.ctCenterId === ctCenterId);
         const hasAccess =
-            user.ctCenterId === ctCenterId ||
+            user.isSuperAdmin ||
             user.ownedCenters.some(c => c.id === ctCenterId) ||
-            user.role === UserRole.SUPER_ADMIN;
+            !!memberRecord ||
+            user.ctCenterId === ctCenterId;
 
         if (!hasAccess) {
             throw new ForbiddenException('ليس لديك صلاحية الوصول لهذا المركز');
@@ -189,8 +205,12 @@ export class AuthService {
             throw new BadRequestException('المركز غير موجود');
         }
 
+        // Determine the user's role in this center
+        const centerRole = memberRecord?.role
+            || (user.ownedCenters.some(c => c.id === ctCenterId) ? UserRole.CT_ADMIN : user.role);
+
         // Generate new tokens with the selected ctCenterId
-        return this.generateTokens({ ...user, ctCenterId, ctCenter: center });
+        return this.generateTokens({ ...user, ctCenterId, ctCenter: center, role: centerRole });
     }
 
     async forgotPassword(email: string): Promise<void> {
@@ -347,6 +367,7 @@ export class AuthService {
             email: user.email,
             role: user.role,
             ctCenterId: user.ctCenterId || undefined,
+            isSuperAdmin: user.isSuperAdmin || false,
         };
 
         const accessToken = this.jwtService.sign(payload);
@@ -375,6 +396,7 @@ export class AuthService {
                 avatar: user.avatar || undefined,
                 ctCenterId: user.ctCenterId || undefined,
                 ctCenterName: user.ctCenter?.name,
+                isSuperAdmin: user.isSuperAdmin || false,
             },
         };
     }

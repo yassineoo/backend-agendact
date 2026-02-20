@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsNumber, IsBoolean, IsInt, Min, Max, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsBoolean, IsInt, IsEnum, Min, Max, MinLength, MaxLength, Matches, IsUUID } from 'class-validator';
+import { VehicleClass } from '@prisma/client';
 
 export class CreateCategoryDto {
     @IsString()
@@ -11,6 +12,13 @@ export class CreateCategoryDto {
     @MaxLength(500)
     description?: string;
 
+    @IsEnum(VehicleClass)
+    vehicleClass: VehicleClass;
+
+    @IsOptional()
+    @IsUUID()
+    parentId?: string;
+
     @IsString()
     @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'اللون يجب أن يكون بصيغة HEX صالحة' })
     color: string;
@@ -19,14 +27,16 @@ export class CreateCategoryDto {
     @IsString()
     icon?: string;
 
+    @IsOptional()
     @IsInt()
     @Min(15)
     @Max(480)
-    duration: number;
+    duration?: number;
 
+    @IsOptional()
     @IsNumber()
     @Min(0)
-    price: number;
+    price?: number;
 
     @IsOptional()
     @IsBoolean()
@@ -44,6 +54,14 @@ export class UpdateCategoryDto {
     @IsString()
     @MaxLength(500)
     description?: string;
+
+    @IsOptional()
+    @IsEnum(VehicleClass)
+    vehicleClass?: VehicleClass;
+
+    @IsOptional()
+    @IsUUID()
+    parentId?: string;
 
     @IsOptional()
     @IsString()

@@ -21,6 +21,7 @@ import { SmsModule } from './sms/sms.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { EmailModule } from './email/email.module';
 import { EventsModule } from './events/events.module';
+import { PrestationsModule } from './prestations/prestations.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { EventsModule } from './events/events.module';
     UsersModule,
     SuperAdminModule,
     ChatModule,
+    PrestationsModule,
     // New modules
     StripeModule,
     SmsModule,
@@ -53,3 +55,4 @@ import { EventsModule } from './events/events.module';
   providers: [AppService],
 })
 export class AppModule { }
+

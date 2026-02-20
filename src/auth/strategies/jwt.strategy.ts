@@ -11,6 +11,7 @@ export interface JwtPayload {
     email: string;
     role: UserRole;
     ctCenterId?: string;
+    isSuperAdmin?: boolean;
 }
 
 // Extract JWT from cookie first, then Authorization header as fallback
@@ -39,18 +40,29 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     async validate(payload: JwtPayload) {
         const user = await this.prisma.user.findUnique({
             where: { id: payload.sub },
-            include: { ctCenter: true },
+            include: {
+                ctCenter: true,
+                userInCTCenters: { select: { ctCenterId: true, role: true } },
+            },
         });
 
         if (!user || !user.isActive) {
             throw new UnauthorizedException('المستخدم غير موجود أو غير نشط');
         }
 
+        // Determine the user's role in the active center
+        const activeCenterId = payload.ctCenterId || user.ctCenterId;
+        const centerMembership = user.userInCTCenters.find(
+            uc => uc.ctCenterId === activeCenterId,
+        );
+
         // Return full user object with ctCenterId from JWT payload
         // (JWT ctCenterId takes priority — allows center switching)
         return {
             ...user,
-            ctCenterId: payload.ctCenterId || user.ctCenterId,
+            ctCenterId: activeCenterId,
+            role: payload.role || centerMembership?.role || user.role,
+            isSuperAdmin: user.isSuperAdmin,
         };
     }
 }

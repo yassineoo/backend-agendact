@@ -123,43 +123,66 @@ enum SmsProvider {
   NONE
 }
 
+enum VehicleClass {
+  LIGHT_VEHICLE
+  HEAVY_VEHICLE
+  MOTORCYCLE
+}
+
 // ===========================================
 // MODELS
 // ===========================================
 
+model UserInCTCenter {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  ctCenterId String   @map("ct_center_id")
+  ctCenter   CTCenter @relation(fields: [ctCenterId], references: [id])
+  role       UserRole @default(CLIENT)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, ctCenterId])
+  @@map("user_in_ct_centers")
+}
+
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password      String
-  firstName     String    @map("first_name")
-  lastName      String    @map("last_name")
-  phone         String?
-  avatar        String?
-  role          UserRole  @default(CLIENT)
-  isActive      Boolean   @default(true) @map("is_active")
-  emailVerified Boolean   @default(false) @map("email_verified")
-  lastLogin     DateTime? @map("last_login")
-  notificationPreferences Json @default("{}") @map("notification_preferences")
-  
+  id                      String    @id @default(uuid())
+  email                   String    @unique
+  password                String
+  firstName               String    @map("first_name")
+  lastName                String    @map("last_name")
+  phone                   String?
+  avatar                  String?
+  role                    UserRole  @default(CLIENT)
+  isActive                Boolean   @default(true) @map("is_active")
+  emailVerified           Boolean   @default(false) @map("email_verified")
+  lastLogin               DateTime? @map("last_login")
+  notificationPreferences Json      @default("{}") @map("notification_preferences")
+
+  isSuperAdmin         Boolean   @default(false) @map("is_super_admin")
   // Password reset
   passwordResetToken   String?   @map("password_reset_token") // Stores the 4-digit OTP (hashed)
   passwordResetExpires DateTime? @map("password_reset_expires")
-  
+
   // Relations
-  ctCenterId           String?           @map("ct_center_id")
-  ctCenter             CTCenter?         @relation(fields: [ctCenterId], references: [id])
-  ownedCenters         CTCenter[]        @relation("CTCenterOwner")
-  assignedReservations Reservation[]     @relation("EmployeeReservations")
+  ctCenterId           String?        @map("ct_center_id")
+  ctCenter             CTCenter?      @relation(fields: [ctCenterId], references: [id])
+  ownedCenters         CTCenter[]     @relation("CTCenterOwner")
+  assignedReservations Reservation[]  @relation("EmployeeReservations")
   notifications        Notification[]
-  sentMessages         ChatMessage[]     @relation("SentMessages")
-  receivedMessages     ChatMessage[]     @relation("ReceivedMessages")
+  sentMessages         ChatMessage[]  @relation("SentMessages")
+  receivedMessages     ChatMessage[]  @relation("ReceivedMessages")
   auditLogs            AuditLog[]
   uploadedDocuments    Document[]
   refreshTokens        RefreshToken[]
-  
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  userInCTCenters UserInCTCenter[]
 
   @@index([email])
   @@index([ctCenterId])
@@ -167,47 +190,48 @@ model User {
 }
 
 model CTCenter {
-  id              String  @id @default(uuid())
-  name            String
-  slug            String  @unique
-  address         String
-  city            String
-  postalCode      String  @map("postal_code")
-  phone           String
-  email           String
-  siren           String?
-  siret           String?
-  approvalNumber  String? @map("approval_number")
-  brand           String?
-  logo            String?
-  coverImage      String? @map("cover_image")
-  description     String?
-  latitude        Float?
-  longitude       Float?
-  timezone        String  @default("Europe/Paris")
-  currency        String  @default("EUR")
-  openingHours    Json?   @map("opening_hours")
-  isActive        Boolean @default(true) @map("is_active")
-  
+  id             String  @id @default(uuid())
+  name           String
+  slug           String  @unique
+  address        String
+  city           String
+  postalCode     String  @map("postal_code")
+  phone          String
+  email          String
+  siren          String?
+  siret          String?
+  approvalNumber String? @map("approval_number")
+  brand          String?
+  logo           String?
+  coverImage     String? @map("cover_image")
+  description    String?
+  latitude       Float?
+  longitude      Float?
+  timezone       String  @default("Europe/Paris")
+  currency       String  @default("EUR")
+  openingHours   Json?   @map("opening_hours")
+  isActive       Boolean @default(true) @map("is_active")
+
   // Stripe
   stripeCustomerId String? @unique @map("stripe_customer_id")
   stripeAccountId  String? @unique @map("stripe_account_id")
-  
+
   // SMS
   smsProvider   SmsProvider @default(SWEEGO) @map("sms_provider")
   smsApiKey     String?     @map("sms_api_key")
   smsSenderName String      @default("AgendaCT") @map("sms_sender_name")
-  
+
   // Owner relation
   ownerId String @map("owner_id")
   owner   User   @relation("CTCenterOwner", fields: [ownerId], references: [id])
-  
+
   // Relations
   users          User[]
   subscriptions  Subscription[]
   clients        Client[]
   vehicles       Vehicle[]
   categories     Category[]
+  prestations    Prestation[]
   reservations   Reservation[]
   payments       Payment[]
   invoices       Invoice[]
@@ -221,10 +245,11 @@ model CTCenter {
   auditLogs      AuditLog[]
   documents      Document[]
   landingPage    LandingPage?
-  
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  userInCTCenters UserInCTCenter[]
 
   @@index([slug])
   @@index([city])
@@ -233,21 +258,21 @@ model CTCenter {
 }
 
 model SubscriptionPlan {
-  id              String   @id @default(uuid())
+  id              String  @id @default(uuid())
   name            String
   description     String?
-  price           Decimal  @db.Decimal(10, 2)
-  duration        Int      // days
-  features        Json     @default("[]")
-  maxUsers        Int      @default(5) @map("max_users")
-  maxVehicles     Int?     @map("max_vehicles")
-  isActive        Boolean  @default(true) @map("is_active")
-  sortOrder       Int      @default(0) @map("sort_order")
-  stripeProductId String?  @unique @map("stripe_product_id")
-  stripePriceId   String?  @unique @map("stripe_price_id")
-  
+  price           Decimal @db.Decimal(10, 2)
+  duration        Int // days
+  features        Json    @default("[]")
+  maxUsers        Int     @default(5) @map("max_users")
+  maxVehicles     Int?    @map("max_vehicles")
+  isActive        Boolean @default(true) @map("is_active")
+  sortOrder       Int     @default(0) @map("sort_order")
+  stripeProductId String? @unique @map("stripe_product_id")
+  stripePriceId   String? @unique @map("stripe_price_id")
+
   subscriptions Subscription[]
-  
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -255,22 +280,22 @@ model SubscriptionPlan {
 }
 
 model Subscription {
-  id                       String             @id @default(uuid())
-  ctCenterId               String             @map("ct_center_id")
-  planId                   String             @map("plan_id")
-  status                   SubscriptionStatus @default(PENDING)
-  startDate                DateTime           @map("start_date")
-  endDate                  DateTime           @map("end_date")
-  amount                   Decimal            @db.Decimal(10, 2)
-  paymentMethod            PaymentMethod?     @map("payment_method")
-  autoRenew                Boolean            @default(false) @map("auto_renew")
-  stripeSubscriptionId     String?            @unique @map("stripe_subscription_id")
-  stripeCurrentPeriodEnd   DateTime?          @map("stripe_current_period_end")
-  
+  id                     String             @id @default(uuid())
+  ctCenterId             String             @map("ct_center_id")
+  planId                 String             @map("plan_id")
+  status                 SubscriptionStatus @default(PENDING)
+  startDate              DateTime           @map("start_date")
+  endDate                DateTime           @map("end_date")
+  amount                 Decimal            @db.Decimal(10, 2)
+  paymentMethod          PaymentMethod?     @map("payment_method")
+  autoRenew              Boolean            @default(false) @map("auto_renew")
+  stripeSubscriptionId   String?            @unique @map("stripe_subscription_id")
+  stripeCurrentPeriodEnd DateTime?          @map("stripe_current_period_end")
+
   ctCenter CTCenter         @relation(fields: [ctCenterId], references: [id])
   plan     SubscriptionPlan @relation(fields: [planId], references: [id])
   payments Payment[]
-  
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -296,12 +321,12 @@ model Client {
   notes         String?
   loyaltyPoints Int        @default(0) @map("loyalty_points")
   customFields  Json?      @map("custom_fields")
-  
+
   ctCenter     CTCenter      @relation(fields: [ctCenterId], references: [id])
   vehicles     Vehicle[]
   reservations Reservation[]
   invoices     Invoice[]
-  
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -329,11 +354,11 @@ model Vehicle {
   mileage              Int?
   color                String?
   notes                String?
-  
+
   client       Client        @relation(fields: [clientId], references: [id])
   ctCenter     CTCenter      @relation(fields: [ctCenterId], references: [id])
   reservations Reservation[]
-  
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -345,26 +370,64 @@ model Vehicle {
 }
 
 model Category {
-  id          String  @id @default(uuid())
-  ctCenterId  String  @map("ct_center_id")
-  name        String
-  description String?
-  color       String  @default("#3B82F6")
-  icon        String?
-  duration    Int     @default(30) // minutes
-  price       Decimal @db.Decimal(10, 2)
-  isActive    Boolean @default(true) @map("is_active")
-  sortOrder   Int     @default(0) @map("sort_order")
-  
+  id           String       @id @default(uuid())
+  ctCenterId   String       @map("ct_center_id")
+  vehicleClass VehicleClass @default(LIGHT_VEHICLE) @map("vehicle_class")
+  parentId     String?      @map("parent_id")
+  name         String
+  description  String?
+  color        String       @default("#3B82F6")
+  icon         String?
+  duration     Int?         @default(30) // minutes — legacy, now on Prestation
+  price        Decimal?     @db.Decimal(10, 2) // legacy, now on Prestation
+  isActive     Boolean      @default(true) @map("is_active")
+  sortOrder    Int          @default(0) @map("sort_order")
+
   ctCenter     CTCenter      @relation(fields: [ctCenterId], references: [id])
+  parent       Category?     @relation("CategoryTree", fields: [parentId], references: [id])
+  children     Category[]    @relation("CategoryTree")
+  prestations  Prestation[]
   reservations Reservation[]
-  
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
   @@index([ctCenterId])
+  @@index([parentId])
   @@map("categories")
+}
+
+model Prestation {
+  id                   String       @id @default(uuid())
+  ctCenterId           String       @map("ct_center_id")
+  vehicleClass         VehicleClass @default(LIGHT_VEHICLE) @map("vehicle_class")
+  name                 String
+  description          String?
+  duration             Int          @default(30) // minutes
+  price                Decimal      @db.Decimal(10, 2)
+  color                String       @default("#FCD34D")
+  icon                 String?
+  image                String?
+  isActive             Boolean      @default(true) @map("is_active")
+  visibleOnWeb         Boolean      @default(true) @map("visible_on_web")
+  webName              String?      @map("web_name")
+  webDescription       String?      @map("web_description")
+  displayPrice         Boolean      @default(true) @map("display_price")
+  forceOnlinePayment   Boolean      @default(false) @map("force_online_payment")
+  forceOnlineRepayment Boolean      @default(false) @map("force_online_repayment")
+  sortOrder            Int          @default(0) @map("sort_order")
+
+  ctCenter   CTCenter   @relation(fields: [ctCenterId], references: [id])
+  categories Category[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([ctCenterId])
+  @@index([vehicleClass])
+  @@map("prestations")
 }
 
 model Reservation {
@@ -383,14 +446,14 @@ model Reservation {
   report       Json?
   reminderSent Boolean           @default(false) @map("reminder_sent")
   bookingCode  String?           @unique @map("booking_code")
-  
+
   ctCenter CTCenter  @relation(fields: [ctCenterId], references: [id])
   client   Client    @relation(fields: [clientId], references: [id])
   vehicle  Vehicle   @relation(fields: [vehicleId], references: [id])
   category Category  @relation(fields: [categoryId], references: [id])
   employee User?     @relation("EmployeeReservations", fields: [employeeId], references: [id])
   payments Payment[]
-  
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -403,24 +466,24 @@ model Reservation {
 }
 
 model Payment {
-  id             String        @id @default(uuid())
-  ctCenterId     String        @map("ct_center_id")
-  reservationId  String?       @map("reservation_id")
-  subscriptionId String?       @map("subscription_id")
-  amount         Decimal       @db.Decimal(10, 2)
-  method         PaymentMethod
-  status         PaymentStatus @default(PENDING)
-  transactionId          String?       @map("transaction_id")
-  stripePaymentIntentId  String?       @unique @map("stripe_payment_intent_id")
-  invoiceNumber          String?       @map("invoice_number")
-  notes          String?
-  paidAt         DateTime?     @map("paid_at")
-  
+  id                    String        @id @default(uuid())
+  ctCenterId            String        @map("ct_center_id")
+  reservationId         String?       @map("reservation_id")
+  subscriptionId        String?       @map("subscription_id")
+  amount                Decimal       @db.Decimal(10, 2)
+  method                PaymentMethod
+  status                PaymentStatus @default(PENDING)
+  transactionId         String?       @map("transaction_id")
+  stripePaymentIntentId String?       @unique @map("stripe_payment_intent_id")
+  invoiceNumber         String?       @map("invoice_number")
+  notes                 String?
+  paidAt                DateTime?     @map("paid_at")
+
   ctCenter     CTCenter      @relation(fields: [ctCenterId], references: [id])
   reservation  Reservation?  @relation(fields: [reservationId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
   invoice      Invoice?
-  
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -437,18 +500,18 @@ model Invoice {
   number     String        @unique
   items      Json          @default("[]")
   subtotal   Decimal       @db.Decimal(10, 2)
-  taxRate    Decimal       @default(20) @db.Decimal(5, 2) @map("tax_rate")
-  taxAmount  Decimal       @db.Decimal(10, 2) @map("tax_amount")
+  taxRate    Decimal       @default(20) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount  Decimal       @map("tax_amount") @db.Decimal(10, 2)
   total      Decimal       @db.Decimal(10, 2)
   status     InvoiceStatus @default(DRAFT)
   dueDate    DateTime?     @map("due_date")
   paidAt     DateTime?     @map("paid_at")
   notes      String?
-  
-  payment  Payment?  @relation(fields: [paymentId], references: [id])
-  ctCenter CTCenter  @relation(fields: [ctCenterId], references: [id])
-  client   Client    @relation(fields: [clientId], references: [id])
-  
+
+  payment  Payment? @relation(fields: [paymentId], references: [id])
+  ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
+  client   Client   @relation(fields: [clientId], references: [id])
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -462,12 +525,12 @@ model Holiday {
   ctCenterId  String    @map("ct_center_id")
   name        String
   date        DateTime  @db.Date
-  endDate     DateTime? @db.Date @map("end_date")
+  endDate     DateTime? @map("end_date") @db.Date
   isRecurring Boolean   @default(false) @map("is_recurring")
   isActive    Boolean   @default(true) @map("is_active")
-  
+
   ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
-  
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -482,16 +545,16 @@ model Promotion {
   name          String
   description   String?
   discountType  DiscountType @map("discount_type")
-  discountValue Decimal      @db.Decimal(10, 2) @map("discount_value")
+  discountValue Decimal      @map("discount_value") @db.Decimal(10, 2)
   code          String?
   startDate     DateTime     @map("start_date")
   endDate       DateTime     @map("end_date")
   usageLimit    Int?         @map("usage_limit")
   usedCount     Int          @default(0) @map("used_count")
   isActive      Boolean      @default(true) @map("is_active")
-  
+
   ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
-  
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -511,9 +574,9 @@ model EmailTemplate {
   type       EmailTemplateType
   variables  Json              @default("[]")
   isActive   Boolean           @default(true) @map("is_active")
-  
+
   ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
-  
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -528,9 +591,9 @@ model SMSTemplate {
   content    String
   variables  Json    @default("[]")
   isActive   Boolean @default(true) @map("is_active")
-  
+
   ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
-  
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -544,9 +607,9 @@ model SmsUsage {
   month      DateTime @db.Date
   sentCount  Int      @default(0) @map("sent_count")
   quota      Int      @default(100)
-  
+
   ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
-  
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -562,9 +625,9 @@ model Notification {
   type    NotificationType
   isRead  Boolean          @default(false) @map("is_read")
   data    Json?
-  
+
   user User @relation(fields: [userId], references: [id])
-  
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
@@ -579,11 +642,11 @@ model ChatMessage {
   receiverId String  @map("receiver_id")
   content    String
   isRead     Boolean @default(false) @map("is_read")
-  
+
   ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
   sender   User     @relation("SentMessages", fields: [senderId], references: [id])
   receiver User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([ctCenterId])
@@ -597,9 +660,9 @@ model Setting {
   ctCenterId String @map("ct_center_id")
   key        String
   value      Json
-  
+
   ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
-  
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -618,10 +681,10 @@ model AuditLog {
   newData    Json?   @map("new_data")
   ipAddress  String? @map("ip_address")
   userAgent  String? @map("user_agent")
-  
+
   user     User      @relation(fields: [userId], references: [id])
   ctCenter CTCenter? @relation(fields: [ctCenterId], references: [id])
-  
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
@@ -639,10 +702,10 @@ model Document {
   size         Int
   mimeType     String @map("mime_type")
   uploadedById String @map("uploaded_by_id")
-  
+
   ctCenter   CTCenter @relation(fields: [ctCenterId], references: [id])
   uploadedBy User     @relation(fields: [uploadedById], references: [id])
-  
+
   createdAt DateTime  @default(now()) @map("created_at")
   deletedAt DateTime? @map("deleted_at")
 
@@ -659,9 +722,9 @@ model LandingPage {
   isPublished    Boolean @default(false) @map("is_published")
   seoTitle       String? @map("seo_title")
   seoDescription String? @map("seo_description")
-  
+
   ctCenter CTCenter @relation(fields: [ctCenterId], references: [id])
-  
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -673,9 +736,9 @@ model RefreshToken {
   userId    String   @map("user_id")
   token     String   @unique
   expiresAt DateTime @map("expires_at")
-  
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
@@ -683,8 +746,8 @@ model RefreshToken {
 }
 
 model SystemSetting {
-  id    String @id @default(uuid())
-  key   String @unique
+  id    String  @id @default(uuid())
+  key   String  @unique
   value Json
   label String?
 
