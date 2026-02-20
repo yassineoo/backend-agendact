@@ -367,6 +367,7 @@ export class AuthService {
 
     setAuthCookies(res: Response, tokens: TokenResponse) {
         const isProduction = this.configService.get('NODE_ENV') === 'production';
+        const domain = isProduction ? '.agendact.com' : undefined;
 
         res.cookie('accessToken', tokens.accessToken, {
             httpOnly: true,
@@ -374,6 +375,7 @@ export class AuthService {
             sameSite: 'lax',
             maxAge: 15 * 60 * 1000, // 15 minutes
             path: '/',
+            domain,
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
@@ -381,13 +383,17 @@ export class AuthService {
             secure: isProduction,
             sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-            path: '/api/auth',
+            path: '/auth',
+            domain,
         });
     }
 
     clearAuthCookies(res: Response) {
-        res.clearCookie('accessToken', { path: '/' });
-        res.clearCookie('refreshToken', { path: '/api/auth' });
+        const isProduction = this.configService.get('NODE_ENV') === 'production';
+        const domain = isProduction ? '.agendact.com' : undefined;
+
+        res.clearCookie('accessToken', { path: '/', domain });
+        res.clearCookie('refreshToken', { path: '/auth', domain });
     }
 
     private async generateTokens(user: any): Promise<TokenResponse> {
