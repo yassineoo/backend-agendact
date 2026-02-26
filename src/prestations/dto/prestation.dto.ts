@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsNumber, IsBoolean, IsInt, IsEnum, IsArray, IsUUID, Min, Max, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsBoolean, IsInt, IsEnum, IsArray, IsUUID, Min, Max, MinLength, MaxLength, Matches, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { VehicleClass } from '@prisma/client';
 
 export class CreatePrestationDto {
@@ -143,4 +144,20 @@ export class UpdatePrestationDto {
     @IsArray()
     @IsUUID('4', { each: true })
     categoryIds?: string[];
+}
+
+export class ReorderPrestationsDto {
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => ReorderItemDto)
+    prestations: ReorderItemDto[];
+}
+
+class ReorderItemDto {
+    @IsUUID()
+    id: string;
+
+    @IsInt()
+    @Min(0)
+    sortOrder: number;
 }
