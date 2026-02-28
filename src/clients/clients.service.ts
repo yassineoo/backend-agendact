@@ -17,6 +17,10 @@ export class ClientsService {
             where.type = filter.type;
         }
 
+        if (filter.isBlacklisted !== undefined) {
+            where.isBlacklisted = filter.isBlacklisted;
+        }
+
         if (filter.search) {
             where.OR = [
                 { firstName: { contains: filter.search, mode: 'insensitive' } },
@@ -132,6 +136,15 @@ export class ClientsService {
         return this.prisma.client.update({
             where: { id: clientId },
             data: { loyaltyPoints: { increment: points } },
+        });
+    }
+
+    async toggleBlacklist(ctCenterId: string, id: string) {
+        const client = await this.findOne(ctCenterId, id);
+
+        return this.prisma.client.update({
+            where: { id },
+            data: { isBlacklisted: !client.isBlacklisted },
         });
     }
 }

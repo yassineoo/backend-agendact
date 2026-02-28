@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsEnum, IsPhoneNumber, MinLength, IsInt, Min, Max } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsEnum, IsBoolean, MinLength, IsInt, Min, Max } from 'class-validator';
 import { ClientType } from '@prisma/client';
 
 export class CreateClientDto {
@@ -39,6 +39,10 @@ export class CreateClientDto {
     @IsOptional()
     @IsString()
     notes?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    isBlacklisted?: boolean;
 }
 
 export class UpdateClientDto {
@@ -83,6 +87,10 @@ export class UpdateClientDto {
     @IsOptional()
     @IsString()
     notes?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    isBlacklisted?: boolean;
 }
 
 export class ClientFilterDto {
@@ -93,6 +101,10 @@ export class ClientFilterDto {
     @IsOptional()
     @IsString()
     search?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    isBlacklisted?: boolean;
 
     @IsOptional()
     @IsInt()

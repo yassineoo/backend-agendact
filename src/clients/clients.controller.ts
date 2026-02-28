@@ -67,4 +67,10 @@ export class ClientsController {
     ) {
         return this.clientsService.addLoyaltyPoints(user.ctCenterId, id, dto.points);
     }
+
+    @Patch(':id/blacklist')
+    @Roles(UserRole.CT_ADMIN)
+    async toggleBlacklist(@CurrentUser() user: any, @Param('id') id: string) {
+        return this.clientsService.toggleBlacklist(user.ctCenterId, id);
+    }
 }

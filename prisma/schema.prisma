@@ -320,6 +320,7 @@ model Client {
   postalCode    String?    @map("postal_code")
   notes         String?
   loyaltyPoints Int        @default(0) @map("loyalty_points")
+  isBlacklisted Boolean    @default(false) @map("is_blacklisted")
   customFields  Json?      @map("custom_fields")
 
   ctCenter     CTCenter      @relation(fields: [ctCenterId], references: [id])
