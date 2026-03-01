@@ -453,16 +453,80 @@ async function main() {
     }
     console.log('🔔 Created', notifData.length, 'notifications');
 
-    // ─── Chat Messages ───────────────────────────────────────────────
+    // ─── Chat Messages — comprehensive edge-case coverage ──────────
+    const minutesAgo = (n: number) => new Date(Date.now() - n * 60000);
+    const hoursAgo = (n: number) => new Date(Date.now() - n * 3600000);
+
     const chatData = [
-        { senderId: admin1.id, receiverId: emp1.id, content: 'Pierre, tu peux prendre le RDV de 14h ?', isRead: true },
-        { senderId: emp1.id, receiverId: admin1.id, content: 'Oui, pas de souci patron.', isRead: true },
-        { senderId: admin1.id, receiverId: emp2.id, content: 'Marie, le client Bernard arrive à 9h demain.', isRead: false },
+        // ── Thread 1: admin1 ↔ emp1 — long conversation (read) ──────
+        { senderId: admin1.id, receiverId: emp1.id, content: 'Pierre, tu peux prendre le RDV de 14h ?', isRead: true, createdAt: daysAgo(3) },
+        { senderId: emp1.id, receiverId: admin1.id, content: 'Oui, pas de souci patron.', isRead: true, createdAt: daysAgo(3) },
+        { senderId: admin1.id, receiverId: emp1.id, content: 'Super, c\'est un CT périodique pour une Renault Clio.', isRead: true, createdAt: daysAgo(3) },
+        { senderId: emp1.id, receiverId: admin1.id, content: 'Compris. Le client a-t-il des demandes spéciales ?', isRead: true, createdAt: daysAgo(2) },
+        { senderId: admin1.id, receiverId: emp1.id, content: 'Non, rien de particulier. Vérifie juste les freins.', isRead: true, createdAt: daysAgo(2) },
+        { senderId: emp1.id, receiverId: admin1.id, content: 'OK c\'est noté. Je m\'en occupe.', isRead: true, createdAt: daysAgo(2) },
+        { senderId: emp1.id, receiverId: admin1.id, content: 'CT terminé, tout est bon. Le client est satisfait.', isRead: true, createdAt: daysAgo(1) },
+        { senderId: admin1.id, receiverId: emp1.id, content: 'Parfait, merci Pierre 👍', isRead: true, createdAt: daysAgo(1) },
+
+        // ── Thread 2: admin1 ↔ emp2 — recent with unread messages ───
+        { senderId: admin1.id, receiverId: emp2.id, content: 'Marie, le client Bernard arrive à 9h demain.', isRead: true, createdAt: hoursAgo(5) },
+        { senderId: emp2.id, receiverId: admin1.id, content: 'D\'accord, je prépare la ligne.', isRead: true, createdAt: hoursAgo(4) },
+        { senderId: admin1.id, receiverId: emp2.id, content: 'Il y a aussi un contre-visite à 10h30.', isRead: true, createdAt: hoursAgo(3) },
+        { senderId: emp2.id, receiverId: admin1.id, content: 'Pas de problème. C\'est le véhicule Mercedes ?', isRead: false, createdAt: hoursAgo(2) },
+        { senderId: emp2.id, receiverId: admin1.id, content: 'Je viens de vérifier, c\'est bien le Sprinter.', isRead: false, createdAt: hoursAgo(1) },
+        { senderId: emp2.id, receiverId: admin1.id, content: 'Au fait, le lecteur de plaques est en panne.', isRead: false, createdAt: minutesAgo(30) },
+
+        // ── Thread 3: emp1 ↔ emp2 — employee-to-employee chat ───────
+        { senderId: emp1.id, receiverId: emp2.id, content: 'Salut Marie, tu as fini avec la Peugeot ?', isRead: true, createdAt: hoursAgo(6) },
+        { senderId: emp2.id, receiverId: emp1.id, content: 'Oui, elle est prête. Tu peux la déplacer.', isRead: true, createdAt: hoursAgo(6) },
+        { senderId: emp1.id, receiverId: emp2.id, content: 'Merci ! On déjeune ensemble ?', isRead: false, createdAt: hoursAgo(3) },
+
+        // ── Thread 4: superAdmin ↔ admin1 — admin-level chat ────────
+        { senderId: superAdmin.id, receiverId: admin1.id, content: 'Jean, les statistiques du mois sont excellentes.', isRead: true, createdAt: daysAgo(5) },
+        { senderId: admin1.id, receiverId: superAdmin.id, content: 'Merci ! On a eu beaucoup de CT ce mois-ci.', isRead: true, createdAt: daysAgo(5) },
+        { senderId: superAdmin.id, receiverId: admin1.id, content: 'Je vois ça. Pensez-vous upgrader votre abonnement ?', isRead: true, createdAt: daysAgo(4) },
+        { senderId: admin1.id, receiverId: superAdmin.id, content: 'On y réfléchit. L\'Enterprise serait intéressant.', isRead: true, createdAt: daysAgo(4) },
+        { senderId: superAdmin.id, receiverId: admin1.id, content: 'N\'hésitez pas, je peux vous faire une démo.', isRead: false, createdAt: daysAgo(1) },
+
+        // ── Thread 5: superAdmin → emp1 — single unread message ─────
+        { senderId: superAdmin.id, receiverId: emp1.id, content: 'Pierre, bienvenue sur la plateforme !', isRead: false, createdAt: daysAgo(7) },
+
+        // ── Thread 6: superAdmin → emp2 — single read message ───────
+        { senderId: superAdmin.id, receiverId: emp2.id, content: 'Marie, n\'oubliez pas de vérifier vos notifications.', isRead: true, createdAt: daysAgo(10) },
+
+        // ── Thread 7: admin1 → emp3 (inactive) — edge case ──────────
+        { senderId: admin1.id, receiverId: emp3.id, content: 'Luc, tu es disponible demain ?', isRead: false, createdAt: daysAgo(8) },
+        { senderId: emp3.id, receiverId: admin1.id, content: 'Désolé, je ne suis plus disponible.', isRead: true, createdAt: daysAgo(8) },
+
+        // ── Thread 8: emoji & special characters edge case ──────────
+        { senderId: emp1.id, receiverId: admin1.id, content: '🎉 Bonne année ! Meilleurs vœux pour 2026 🥂', isRead: true, createdAt: daysAgo(60) },
+        { senderId: admin1.id, receiverId: emp1.id, content: 'Merci Pierre ! Bonne année à toi aussi 🎊', isRead: true, createdAt: daysAgo(60) },
+
+        // ── Thread 9: very long message edge case ───────────────────
+        { senderId: emp2.id, receiverId: admin1.id, content: 'Bonjour Jean, je voulais vous informer que le véhicule immatriculé AB-123-CD présente plusieurs anomalies au niveau du système de freinage. Les plaquettes sont usées à 90%, les disques présentent des rayures profondes, et le liquide de frein est en dessous du niveau minimum. Je recommande une contre-visite après réparations. Le client a été informé et il va prendre rendez-vous chez son garagiste. Je vous envoie le rapport détaillé par email.', isRead: true, createdAt: daysAgo(15) },
+
+        // ── Thread 10: rapid-fire messages (same minute) ────────────
+        { senderId: admin1.id, receiverId: emp1.id, content: 'Pierre ?', isRead: true, createdAt: minutesAgo(5) },
+        { senderId: admin1.id, receiverId: emp1.id, content: 'Tu es là ?', isRead: true, createdAt: minutesAgo(4) },
+        { senderId: admin1.id, receiverId: emp1.id, content: 'J\'ai besoin de toi en urgence', isRead: false, createdAt: minutesAgo(3) },
+        { senderId: emp1.id, receiverId: admin1.id, content: 'Oui oui, j\'arrive !', isRead: false, createdAt: minutesAgo(2) },
+        { senderId: admin1.id, receiverId: emp1.id, content: 'Merci, viens au bureau', isRead: false, createdAt: minutesAgo(1) },
+
     ];
+
     for (const m of chatData) {
-        await prisma.chatMessage.create({ data: { ctCenterId: center1.id, ...m } });
+        await prisma.chatMessage.create({
+            data: {
+                ctCenterId: center1.id,
+                senderId: m.senderId,
+                receiverId: m.receiverId,
+                content: m.content,
+                isRead: m.isRead,
+                createdAt: m.createdAt,
+            },
+        });
     }
-    console.log('💬 Created', chatData.length, 'chat messages');
+    console.log('💬 Created', chatData.length, 'chat messages (edge cases: long threads, unread, emoji, rapid-fire, cross-center, inactive user)');
 
     // ─── Settings (center-level) ─────────────────────────────────────
     const settingsData = [
@@ -633,6 +697,22 @@ async function main() {
         },
     });
     console.log('✅ Seeded center 2 (Lyon) with clients, vehicles, reservations');
+
+    // ─── Cross-center chat: superAdmin ↔ admin2 ─────────────────────
+    const crossCenterChat = [
+        { senderId: superAdmin.id, receiverId: admin2.id, content: 'Paul, votre abonnement a été renouvelé avec succès.', isRead: true, createdAt: daysAgo(10) },
+        { senderId: admin2.id, receiverId: superAdmin.id, content: 'Merci, tout fonctionne bien.', isRead: true, createdAt: daysAgo(9) },
+        { senderId: superAdmin.id, receiverId: admin2.id, content: 'Vous avez 2 réservations demain.', isRead: false, createdAt: hoursAgo(8) },
+        // superAdmin ↔ emp2c2 (Sarah, center 2)
+        { senderId: superAdmin.id, receiverId: emp2c2.id, content: 'Sarah, comment se passe votre intégration ?', isRead: true, createdAt: daysAgo(3) },
+        { senderId: emp2c2.id, receiverId: superAdmin.id, content: 'Très bien merci ! L\'outil est très intuitif.', isRead: true, createdAt: daysAgo(3) },
+    ];
+    for (const m of crossCenterChat) {
+        await prisma.chatMessage.create({
+            data: { ctCenterId: center2.id, senderId: m.senderId, receiverId: m.receiverId, content: m.content, isRead: m.isRead, createdAt: m.createdAt },
+        });
+    }
+    console.log('💬 Created', crossCenterChat.length, 'cross-center chat messages');
 
     // ═══════════════════════════════════════════════════════════════════
     // CENTER 3: Inactive center (edge case)

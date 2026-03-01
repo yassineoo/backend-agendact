@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ChatService } from './chat.service';
 import { CurrentUser } from '../auth/decorators';
 import { TenantGuard } from '../auth/guards';
+import { CreateMessageDto } from './dto/create-message.dto';
 
 @Controller('chat')
 @UseGuards(AuthGuard('jwt'), TenantGuard)
@@ -16,12 +17,12 @@ export class ChatController {
 
     @Get('messages/:contactId')
     async getMessages(@Param('contactId') contactId: string, @CurrentUser() user: any) {
-        return this.chatService.getMessages(user.id, contactId);
+        return this.chatService.getMessages(user.id, contactId, user.ctCenterId);
     }
 
     @Post('messages')
     async sendMessage(
-        @Body() body: { receiverId: string; content: string },
+        @Body() body: CreateMessageDto,
         @CurrentUser() user: any,
     ) {
         return this.chatService.sendMessage(
@@ -32,8 +33,13 @@ export class ChatController {
         );
     }
 
+    @Patch('messages/:contactId/read')
+    async markAsRead(@Param('contactId') contactId: string, @CurrentUser() user: any) {
+        return this.chatService.markAsRead(user.id, contactId, user.ctCenterId);
+    }
+
     @Get('users')
     async getUsers(@Query('search') search: string, @CurrentUser() user: any) {
-        return this.chatService.getUsers(user.id, search);
+        return this.chatService.getUsers(user.id, search, user.isSuperAdmin ? undefined : user.ctCenterId);
     }
 }
