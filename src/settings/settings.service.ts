@@ -39,6 +39,10 @@ export class SettingsService {
                 phone: center.phone,
                 email: center.email,
                 logo: center.logo,
+                siret: center.siret,
+                siren: center.siren,
+                approvalNumber: center.approvalNumber,
+                brand: center.brand,
                 openingHours: center.openingHours,
                 timezone: center.timezone,
                 currency: center.currency,
@@ -57,6 +61,10 @@ export class SettingsService {
         return this.prisma.cTCenter.update({
             where: { id: ctCenterId },
             data: dto,
+            select: {
+                id: true, name: true, address: true, city: true, postalCode: true,
+                phone: true, email: true, logo: true, siret: true, brand: true,
+            },
         });
     }
 
@@ -64,7 +72,17 @@ export class SettingsService {
         return this.prisma.cTCenter.update({
             where: { id: ctCenterId },
             data: { openingHours: dto as any },
+            select: { id: true, openingHours: true },
         });
+    }
+
+    async updateBusinessRules(ctCenterId: string, rules: Record<string, boolean>) {
+        // Persist each business rule as an individual Setting key-value record
+        const updates = Object.entries(rules).map(([key, value]) =>
+            this.updateSetting(ctCenterId, key, value)
+        );
+        await Promise.all(updates);
+        return { message: 'Business rules updated', rules };
     }
 
     async getSetting(ctCenterId: string, key: string) {
@@ -81,7 +99,7 @@ export class SettingsService {
     }
 
     async updateSetting(ctCenterId: string, key: string, value: any) {
-        const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+        const jsonValue = typeof value === 'object' ? value : value;
 
         const existing = await this.prisma.setting.findFirst({
             where: { ctCenterId, key },
@@ -90,25 +108,22 @@ export class SettingsService {
         if (existing) {
             return this.prisma.setting.update({
                 where: { id: existing.id },
-                data: { value: stringValue },
+                data: { value: jsonValue },
             });
         }
 
         return this.prisma.setting.create({
-            data: {
-                ctCenterId,
-                key,
-                value: stringValue,
-            },
+            data: { ctCenterId, key, value: jsonValue },
         });
     }
 
     async getPaymentMethods(ctCenterId: string) {
         const setting = await this.getSetting(ctCenterId, 'paymentMethods');
         return setting || {
-            cash: { enabled: true, name: 'نقداً' },
-            card: { enabled: true, name: 'بطاقة ائتمان' },
-            bank_transfer: { enabled: false, name: 'تحويل بنكي' },
+            cash: { enabled: true, name: 'Cash' },
+            card: { enabled: true, name: 'Bank Card' },
+            check: { enabled: false, name: 'Check' },
+            bank_transfer: { enabled: false, name: 'Bank Transfer' },
         };
     }
 
@@ -116,11 +131,47 @@ export class SettingsService {
         return this.updateSetting(ctCenterId, 'paymentMethods', methods);
     }
 
+    async getLandingPage(ctCenterId: string) {
+        const landingPage = await this.prisma.landingPage.findUnique({
+            where: { ctCenterId },
+        });
+        return landingPage || {
+            ctCenterId,
+            templateId: 1,
+            config: {},
+            isPublished: false,
+        };
+    }
+
+    async updateLandingPage(ctCenterId: string, data: any) {
+        const { templateId, config, isPublished, seoTitle, seoDescription, customDomain } = data;
+        return this.prisma.landingPage.upsert({
+            where: { ctCenterId },
+            create: {
+                ctCenterId,
+                templateId: templateId ?? 1,
+                config: config ?? {},
+                isPublished: isPublished ?? false,
+                seoTitle,
+                seoDescription,
+                customDomain,
+            },
+            update: {
+                ...(templateId !== undefined && { templateId }),
+                ...(config !== undefined && { config }),
+                ...(isPublished !== undefined && { isPublished }),
+                ...(seoTitle !== undefined && { seoTitle }),
+                ...(seoDescription !== undefined && { seoDescription }),
+                ...(customDomain !== undefined && { customDomain }),
+            },
+        });
+    }
+
     async getTrash(ctCenterId: string) {
         const [clients, vehicles, categories, reservations] = await Promise.all([
             this.prisma.client.findMany({
                 where: { ctCenterId, deletedAt: { not: null } },
-                select: { id: true, firstName: true, lastName: true, deletedAt: true },
+                select: { id: true, firstName: true, lastName: true, email: true, phone: true, deletedAt: true },
                 take: 50,
             }),
             this.prisma.vehicle.findMany({
@@ -135,7 +186,12 @@ export class SettingsService {
             }),
             this.prisma.reservation.findMany({
                 where: { ctCenterId, deletedAt: { not: null } },
-                select: { id: true, bookingCode: true, deletedAt: true },
+                select: {
+                    id: true, bookingCode: true, deletedAt: true, date: true,
+                    client: { select: { firstName: true, lastName: true } },
+                    vehicle: { select: { plateNumber: true, brand: true, model: true } },
+                    category: { select: { name: true } },
+                },
                 take: 50,
             }),
         ]);
@@ -153,7 +209,7 @@ export class SettingsService {
 
         const model = models[type];
         if (!model) {
-            throw new NotFoundException('نوع غير صالح');
+            throw new NotFoundException('Invalid type');
         }
 
         const item = await model.findFirst({
@@ -161,7 +217,7 @@ export class SettingsService {
         });
 
         if (!item) {
-            throw new NotFoundException('العنصر غير موجود');
+            throw new NotFoundException('Item not found in trash');
         }
 
         return model.update({
@@ -179,27 +235,133 @@ export class SettingsService {
 
         const model = models[type];
         if (!model) {
-            throw new NotFoundException('نوع غير صالح');
+            throw new NotFoundException('Invalid type');
         }
 
-        return model.delete({
-            where: { id },
-        });
+        return model.delete({ where: { id } });
     }
 
     async emptyTrash(ctCenterId: string) {
         await this.prisma.$transaction([
-            this.prisma.client.deleteMany({
-                where: { ctCenterId, deletedAt: { not: null } },
-            }),
-            this.prisma.vehicle.deleteMany({
-                where: { ctCenterId, deletedAt: { not: null } },
-            }),
-            this.prisma.category.deleteMany({
-                where: { ctCenterId, deletedAt: { not: null } },
-            }),
+            this.prisma.client.deleteMany({ where: { ctCenterId, deletedAt: { not: null } } }),
+            this.prisma.vehicle.deleteMany({ where: { ctCenterId, deletedAt: { not: null } } }),
+            this.prisma.category.deleteMany({ where: { ctCenterId, deletedAt: { not: null } } }),
         ]);
 
-        return { message: 'تم إفراغ سلة المحذوفات' };
+        return { message: 'Trash emptied successfully' };
+    }
+
+    // ─── Regulatory Compliance ────────────────────────────────────────────────
+
+    async getRegulatoryCompliance(ctCenterId: string) {
+        const stored = await this.getSetting(ctCenterId, 'regulatoryCompliance');
+        return stored || {
+            connectionType: 'sftp',
+            sftp: { host: '', port: '22', id: '', password: '', remoteFolder: '' },
+            soap: { apiUrl: '', sftpId: '', password: '', tokenApi: '', validateXsd: false, compressZip: false },
+            exportMode: 'auto',
+            exportFormat: 'xml',
+            archiveEnabled: false,
+            archivePath: '',
+            utacCode: '',
+            operatorCode: '',
+        };
+    }
+
+    async updateRegulatoryCompliance(ctCenterId: string, data: any) {
+        await this.updateSetting(ctCenterId, 'regulatoryCompliance', data);
+        return { message: 'Regulatory compliance settings updated', data };
+    }
+
+    // ─── Document Types ───────────────────────────────────────────────────────
+
+    private readonly DEFAULT_DOCUMENT_TYPES = [
+        { id: 'doc-1', name: 'Registration Certificate (Carte Grise)', required: true, active: true, normalClient: true, proClient: true },
+        { id: 'doc-2', name: 'Insurance Document', required: true, active: true, normalClient: true, proClient: true },
+        { id: 'doc-3', name: 'Fitness to Drive', required: false, active: true, normalClient: false, proClient: false },
+        { id: 'doc-4', name: 'ID Card', required: false, active: false, normalClient: false, proClient: false },
+        { id: 'doc-5', name: 'Medical Certificate', required: false, active: false, normalClient: false, proClient: false },
+    ];
+
+    async getDocumentTypes(ctCenterId: string) {
+        const stored = await this.getSetting(ctCenterId, 'documentTypes');
+        return stored || this.DEFAULT_DOCUMENT_TYPES;
+    }
+
+    async createDocumentType(ctCenterId: string, data: any) {
+        const current = await this.getDocumentTypes(ctCenterId);
+        const newDoc = {
+            id: `doc-${Date.now()}`,
+            name: data.name,
+            required: data.required ?? false,
+            active: data.active ?? true,
+            normalClient: data.normalClient ?? false,
+            proClient: data.proClient ?? false,
+        };
+        const updated = [...current, newDoc];
+        await this.updateSetting(ctCenterId, 'documentTypes', updated);
+        return newDoc;
+    }
+
+    async updateDocumentType(ctCenterId: string, id: string, data: any) {
+        const current = await this.getDocumentTypes(ctCenterId);
+        const updated = current.map((doc: any) => doc.id === id ? { ...doc, ...data } : doc);
+        await this.updateSetting(ctCenterId, 'documentTypes', updated);
+        return updated.find((doc: any) => doc.id === id);
+    }
+
+    async deleteDocumentType(ctCenterId: string, id: string) {
+        const current = await this.getDocumentTypes(ctCenterId);
+        const updated = current.filter((doc: any) => doc.id !== id);
+        await this.updateSetting(ctCenterId, 'documentTypes', updated);
+        return { message: 'Document type deleted' };
+    }
+
+    // ─── Loyalty Card ─────────────────────────────────────────────────────────
+
+    async getLoyaltyCard(ctCenterId: string) {
+        const stored = await this.getSetting(ctCenterId, 'loyaltyCard');
+        return stored || {
+            isActivated: false,
+            visitThreshold: 5,
+            rewardText: '5th visit: -15%',
+            stampCount: 4,
+        };
+    }
+
+    async updateLoyaltyCard(ctCenterId: string, data: any) {
+        await this.updateSetting(ctCenterId, 'loyaltyCard', data);
+        return { message: 'Loyalty card settings updated', data };
+    }
+
+    // ─── Menu Settings ────────────────────────────────────────────────────────
+
+    private readonly DEFAULT_MENU_ITEMS = [
+        { id: 1, name: 'Dashboard', visible: true, active: true, order: 0 },
+        { id: 2, name: 'Planning', visible: true, active: true, order: 1 },
+        { id: 3, name: 'Categories & Prestations', visible: true, active: true, order: 2 },
+        { id: 4, name: 'History Management', visible: true, active: true, order: 3 },
+        { id: 5, name: 'Clients & Pros', visible: false, active: false, order: 4 },
+        { id: 6, name: 'Access & Role', visible: true, active: false, order: 5 },
+    ];
+
+    async getMenuSettings(ctCenterId: string) {
+        const menuItems = await this.getSetting(ctCenterId, 'menuItems');
+        const externalLinks = await this.getSetting(ctCenterId, 'externalLinks');
+        return {
+            menuItems: menuItems || this.DEFAULT_MENU_ITEMS,
+            externalLinks: externalLinks || [],
+        };
+    }
+
+    async updateMenuSettings(ctCenterId: string, data: any) {
+        if (data.menuItems !== undefined) {
+            await this.updateSetting(ctCenterId, 'menuItems', data.menuItems);
+        }
+        if (data.externalLinks !== undefined) {
+            await this.updateSetting(ctCenterId, 'externalLinks', data.externalLinks);
+        }
+        return { message: 'Menu settings updated' };
     }
 }
+

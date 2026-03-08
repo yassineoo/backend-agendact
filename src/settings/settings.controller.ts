@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SettingsService } from './settings.service';
 import { UpdateCTCenterSettingsDto, UpdateOpeningHoursDto } from './dto';
@@ -27,6 +27,11 @@ export class SettingsController {
         return this.settingsService.updateOpeningHours(user.ctCenterId, dto);
     }
 
+    @Patch('business-rules')
+    async updateBusinessRules(@CurrentUser() user: any, @Body() rules: Record<string, boolean>) {
+        return this.settingsService.updateBusinessRules(user.ctCenterId, rules);
+    }
+
     @Get('payment-methods')
     async getPaymentMethods(@CurrentUser() user: any) {
         return this.settingsService.getPaymentMethods(user.ctCenterId);
@@ -35,6 +40,16 @@ export class SettingsController {
     @Patch('payment-methods')
     async updatePaymentMethods(@CurrentUser() user: any, @Body() methods: Record<string, any>) {
         return this.settingsService.updatePaymentMethods(user.ctCenterId, methods);
+    }
+
+    @Get('landing-page')
+    async getLandingPage(@CurrentUser() user: any) {
+        return this.settingsService.getLandingPage(user.ctCenterId);
+    }
+
+    @Patch('landing-page')
+    async updateLandingPage(@CurrentUser() user: any, @Body() data: any) {
+        return this.settingsService.updateLandingPage(user.ctCenterId, data);
     }
 
     @Get('trash')
@@ -55,5 +70,59 @@ export class SettingsController {
     @Delete('trash')
     async emptyTrash(@CurrentUser() user: any) {
         return this.settingsService.emptyTrash(user.ctCenterId);
+    }
+
+    // ─── Regulatory Compliance ────────────────────────────────────────────────
+    @Get('regulatory-compliance')
+    async getRegulatoryCompliance(@CurrentUser() user: any) {
+        return this.settingsService.getRegulatoryCompliance(user.ctCenterId);
+    }
+
+    @Patch('regulatory-compliance')
+    async updateRegulatoryCompliance(@CurrentUser() user: any, @Body() data: any) {
+        return this.settingsService.updateRegulatoryCompliance(user.ctCenterId, data);
+    }
+
+    // ─── Document Types ───────────────────────────────────────────────────────
+    @Get('document-types')
+    async getDocumentTypes(@CurrentUser() user: any) {
+        return this.settingsService.getDocumentTypes(user.ctCenterId);
+    }
+
+    @Post('document-types')
+    async createDocumentType(@CurrentUser() user: any, @Body() data: any) {
+        return this.settingsService.createDocumentType(user.ctCenterId, data);
+    }
+
+    @Patch('document-types/:id')
+    async updateDocumentType(@CurrentUser() user: any, @Param('id') id: string, @Body() data: any) {
+        return this.settingsService.updateDocumentType(user.ctCenterId, id, data);
+    }
+
+    @Delete('document-types/:id')
+    async deleteDocumentType(@CurrentUser() user: any, @Param('id') id: string) {
+        return this.settingsService.deleteDocumentType(user.ctCenterId, id);
+    }
+
+    // ─── Loyalty Card ─────────────────────────────────────────────────────────
+    @Get('loyalty-card')
+    async getLoyaltyCard(@CurrentUser() user: any) {
+        return this.settingsService.getLoyaltyCard(user.ctCenterId);
+    }
+
+    @Patch('loyalty-card')
+    async updateLoyaltyCard(@CurrentUser() user: any, @Body() data: any) {
+        return this.settingsService.updateLoyaltyCard(user.ctCenterId, data);
+    }
+
+    // ─── Menu Settings ────────────────────────────────────────────────────────
+    @Get('menu')
+    async getMenuSettings(@CurrentUser() user: any) {
+        return this.settingsService.getMenuSettings(user.ctCenterId);
+    }
+
+    @Patch('menu')
+    async updateMenuSettings(@CurrentUser() user: any, @Body() data: any) {
+        return this.settingsService.updateMenuSettings(user.ctCenterId, data);
     }
 }

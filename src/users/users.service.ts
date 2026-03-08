@@ -4,31 +4,72 @@ import { CreateUserDto, UpdateUserDto } from './dto';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
+interface FindAllOptions {
+    includeInactive?: boolean;
+    role?: UserRole;
+    search?: string;
+    page?: number;
+    limit?: number;
+}
+
 @Injectable()
 export class UsersService {
     constructor(private prisma: PrismaService) { }
 
-    async findAll(ctCenterId: string, includeInactive = false) {
-        return this.prisma.user.findMany({
-            where: {
-                ctCenterId,
-                deletedAt: null,
-                ...(includeInactive ? {} : { isActive: true }),
-            },
-            select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-                phone: true,
-                role: true,
-                isActive: true,
-                avatar: true,
-                lastLogin: true,
-                createdAt: true,
-            },
-            orderBy: { createdAt: 'desc' },
-        });
+    async findAll(ctCenterId: string, options: FindAllOptions = {}) {
+        const { includeInactive = false, role, search, page = 1, limit = 20 } = options;
+
+        const where: any = {
+            ctCenterId,
+            deletedAt: null,
+            ...(includeInactive ? {} : { isActive: true }),
+        };
+
+        // Filter by role
+        if (role) {
+            where.role = role;
+        }
+
+        // Search by name or email
+        if (search) {
+            where.OR = [
+                { firstName: { contains: search, mode: 'insensitive' } },
+                { lastName: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
+        const skip = (page - 1) * limit;
+
+        const [items, total] = await Promise.all([
+            this.prisma.user.findMany({
+                where,
+                select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
+                    phone: true,
+                    role: true,
+                    isActive: true,
+                    avatar: true,
+                    lastLogin: true,
+                    createdAt: true,
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            this.prisma.user.count({ where }),
+        ]);
+
+        return {
+            items,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     }
 
     async findOne(ctCenterId: string, id: string) {

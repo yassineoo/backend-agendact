@@ -13,8 +13,21 @@ export class UsersController {
     constructor(private usersService: UsersService) { }
 
     @Get()
-    async findAll(@CurrentUser() user: any, @Query('includeInactive') includeInactive?: boolean) {
-        return this.usersService.findAll(user.ctCenterId, includeInactive);
+    async findAll(
+        @CurrentUser() user: any,
+        @Query('includeInactive') includeInactive?: string,
+        @Query('role') role?: string,
+        @Query('search') search?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+    ) {
+        return this.usersService.findAll(user.ctCenterId, {
+            includeInactive: includeInactive === 'true',
+            role: role as UserRole | undefined,
+            search,
+            page: page ? parseInt(page, 10) : 1,
+            limit: limit ? parseInt(limit, 10) : 20,
+        });
     }
 
     @Get('stats')
