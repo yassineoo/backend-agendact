@@ -57,11 +57,31 @@ export class UpdateCTCenterSettingsDto {
 }
 
 export class UpdateOpeningHoursDto {
+    @IsOptional()
+    @IsObject()
     monday?: { open: string; close: string; closed: boolean };
+
+    @IsOptional()
+    @IsObject()
     tuesday?: { open: string; close: string; closed: boolean };
+
+    @IsOptional()
+    @IsObject()
     wednesday?: { open: string; close: string; closed: boolean };
+
+    @IsOptional()
+    @IsObject()
     thursday?: { open: string; close: string; closed: boolean };
+
+    @IsOptional()
+    @IsObject()
     friday?: { open: string; close: string; closed: boolean };
+
+    @IsOptional()
+    @IsObject()
     saturday?: { open: string; close: string; closed: boolean };
+
+    @IsOptional()
+    @IsObject()
     sunday?: { open: string; close: string; closed: boolean };
 }

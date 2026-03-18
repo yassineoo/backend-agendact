@@ -1,10 +1,69 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCTCenterSettingsDto, UpdateOpeningHoursDto } from './dto';
 
 @Injectable()
 export class SettingsService {
     constructor(private prisma: PrismaService) { }
+
+    // ─── Create Center ────────────────────────────────────────────────────────
+
+    async createCenter(ownerId: string, data: any) {
+        const slug = (data.name || 'center')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '')
+            + '-' + Date.now().toString(36);
+
+        return this.prisma.cTCenter.create({
+            data: {
+                name: data.name,
+                slug,
+                address: data.address || '',
+                city: data.city || '',
+                postalCode: data.postalCode || '',
+                phone: data.phone || '',
+                email: data.email || '',
+                siret: data.siret,
+                brand: data.brand,
+                logo: data.logo,
+                coverImage: data.coverImage,
+                isActive: data.isActive ?? true,
+                ownerId,
+            },
+            select: {
+                id: true, name: true, slug: true, address: true, city: true,
+                postalCode: true, phone: true, email: true, logo: true,
+                siret: true, brand: true, isActive: true,
+            },
+        });
+    }
+
+    async deleteCenter(ctCenterId: string) {
+        return this.prisma.cTCenter.update({
+            where: { id: ctCenterId },
+            data: { isActive: false },
+        });
+    }
+
+    // ─── Center Config (categories, lines, visibility, iframe) ────────────────
+
+    async getCenterConfig(ctCenterId: string) {
+        const stored = await this.getSetting(ctCenterId, 'centerConfig');
+        return stored || {
+            vlCategories: { technicalInspection: true, voluntaryControl: true },
+            lCategories: { garageVolunteer: true, technicalInspection: true },
+            lines: [],
+            visibleOnWeb: true,
+            paymentStatusActive: true,
+            urlIframe: '',
+        };
+    }
+
+    async updateCenterConfig(ctCenterId: string, data: any) {
+        await this.updateSetting(ctCenterId, 'centerConfig', data);
+        return { message: 'Center config updated', data };
+    }
 
     async getCTCenterSettings(ctCenterId: string) {
         const center = await this.prisma.cTCenter.findUnique({
@@ -143,8 +202,55 @@ export class SettingsService {
         };
     }
 
+    // Public: get landing page + center info by slug (no auth needed)
+    async getLandingPagePublic(slug: string) {
+        const center = await this.prisma.cTCenter.findFirst({
+            where: { slug, isActive: true },
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                address: true,
+                city: true,
+                postalCode: true,
+                phone: true,
+                email: true,
+                logo: true,
+                coverImage: true,
+                openingHours: true,
+            },
+        });
+        if (!center) return null;
+
+        const landingPage = await this.prisma.landingPage.findUnique({
+            where: { ctCenterId: center.id },
+        });
+
+        return {
+            center,
+            landingPage: landingPage || {
+                templateId: 1,
+                config: {},
+                isPublished: false,
+            },
+        };
+    }
+
     async updateLandingPage(ctCenterId: string, data: any) {
         const { templateId, config, isPublished, seoTitle, seoDescription, customDomain } = data;
+
+        // Auto-set subdomain from center slug if not explicitly provided
+        let domain = customDomain;
+        if (domain === undefined || domain === null || domain === '') {
+            const center = await this.prisma.cTCenter.findUnique({
+                where: { id: ctCenterId },
+                select: { slug: true },
+            });
+            if (center?.slug) {
+                domain = center.slug;
+            }
+        }
+
         return this.prisma.landingPage.upsert({
             where: { ctCenterId },
             create: {
@@ -154,7 +260,7 @@ export class SettingsService {
                 isPublished: isPublished ?? false,
                 seoTitle,
                 seoDescription,
-                customDomain,
+                customDomain: domain,
             },
             update: {
                 ...(templateId !== undefined && { templateId }),
@@ -162,7 +268,7 @@ export class SettingsService {
                 ...(isPublished !== undefined && { isPublished }),
                 ...(seoTitle !== undefined && { seoTitle }),
                 ...(seoDescription !== undefined && { seoDescription }),
-                ...(customDomain !== undefined && { customDomain }),
+                ...(domain !== undefined && { customDomain: domain }),
             },
         });
     }
@@ -259,18 +365,27 @@ export class SettingsService {
             connectionType: 'sftp',
             sftp: { host: '', port: '22', id: '', password: '', remoteFolder: '' },
             soap: { apiUrl: '', sftpId: '', password: '', tokenApi: '', validateXsd: false, compressZip: false },
-            exportMode: 'auto',
-            exportFormat: 'xml',
+            exportMode: 'scheduled',
+            scheduleFrequency: 'daily',
+            // Section D - Export Format
+            selectedFormats: ['xml', 'xsd'],
+            formatOptions: { validateXsd: true, compressZip: false },
+            // Section H - Archiving
             archiveEnabled: false,
             archivePath: '',
+            retentionDays: 365,
+            // Center info
             utacCode: '',
             operatorCode: '',
         };
     }
 
     async updateRegulatoryCompliance(ctCenterId: string, data: any) {
-        await this.updateSetting(ctCenterId, 'regulatoryCompliance', data);
-        return { message: 'Regulatory compliance settings updated', data };
+        // Merge with existing so partial updates don't wipe other sections
+        const existing = await this.getRegulatoryCompliance(ctCenterId);
+        const merged = { ...existing, ...data };
+        await this.updateSetting(ctCenterId, 'regulatoryCompliance', merged);
+        return { message: 'Regulatory compliance settings updated', data: merged };
     }
 
     // ─── Document Types ───────────────────────────────────────────────────────

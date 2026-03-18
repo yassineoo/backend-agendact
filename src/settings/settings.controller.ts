@@ -72,6 +72,28 @@ export class SettingsController {
         return this.settingsService.emptyTrash(user.ctCenterId);
     }
 
+    // ─── Create / Delete Center ──────────────────────────────────────────────
+    @Post('centers')
+    async createCenter(@CurrentUser() user: any, @Body() data: any) {
+        return this.settingsService.createCenter(user.id, data);
+    }
+
+    @Delete('centers/:id')
+    async deleteCenter(@CurrentUser() user: any, @Param('id') id: string) {
+        return this.settingsService.deleteCenter(id);
+    }
+
+    // ─── Center Config (categories, lines, visibility, iframe) ───────────────
+    @Get('center-config')
+    async getCenterConfig(@CurrentUser() user: any) {
+        return this.settingsService.getCenterConfig(user.ctCenterId);
+    }
+
+    @Patch('center-config')
+    async updateCenterConfig(@CurrentUser() user: any, @Body() data: any) {
+        return this.settingsService.updateCenterConfig(user.ctCenterId, data);
+    }
+
     // ─── Regulatory Compliance ────────────────────────────────────────────────
     @Get('regulatory-compliance')
     async getRegulatoryCompliance(@CurrentUser() user: any) {
