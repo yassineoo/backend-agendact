@@ -20,7 +20,13 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:3001',
+      /^https:\/\/.*\.agendact\.com$/,
+      /^http:\/\/.*\.localhost:3001$/,
+      /^http:\/\/localhost:3000$/,
+      /^http:\/\/localhost:3001$/
+    ],
     credentials: true,
   });
 
