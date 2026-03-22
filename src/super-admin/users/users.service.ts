@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class SuperAdminUsersService {
@@ -88,5 +89,21 @@ export class SuperAdminUsersService {
     async delete(id: string) {
         await this.findById(id);
         return this.prisma.user.delete({ where: { id } });
+    }
+
+    async create(dto: { firstName: string; lastName: string; email: string; phone?: string; role?: UserRole; ctCenterId?: string }) {
+        const tempPassword = await bcrypt.hash('TempPass123!', 10);
+        return this.prisma.user.create({
+            data: {
+                firstName: dto.firstName,
+                lastName: dto.lastName,
+                email: dto.email,
+                phone: dto.phone || '',
+                password: tempPassword,
+                role: dto.role || UserRole.CT_ADMIN,
+                ctCenterId: dto.ctCenterId || undefined,
+            },
+            select: { id: true, email: true, firstName: true, lastName: true, role: true },
+        });
     }
 }

@@ -5,7 +5,7 @@ import { Roles } from '../../auth/decorators';
 import { RolesGuard } from '../../auth/guards';
 import { UserRole } from '@prisma/client';
 
-@Controller('api/super-admin/subscriptions')
+@Controller('super-admin/subscriptions')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles(UserRole.SUPER_ADMIN)
 export class SuperAdminSubscriptionsController {

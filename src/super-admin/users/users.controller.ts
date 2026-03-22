@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../auth/guards';
 import { Roles } from '../../auth/decorators';
@@ -46,5 +46,10 @@ export class SuperAdminUsersController {
     @Delete(':id')
     delete(@Param('id') id: string) {
         return this.usersService.delete(id);
+    }
+
+    @Post()
+    create(@Body() dto: any) {
+        return this.usersService.create(dto);
     }
 }

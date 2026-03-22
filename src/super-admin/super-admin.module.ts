@@ -6,6 +6,8 @@ import { SuperAdminPlansModule } from './plans/plans.module';
 import { SuperAdminUsersModule } from './users/users.module';
 import { SuperAdminAuditModule } from './audit/audit.module';
 import { SystemSettingsModule } from './settings/system-settings.module';
+import { SuperAdminPaymentsModule } from './payments/sa-payments.module';
+import { SuperAdminReservationsModule } from './reservations/sa-reservations.module';
 
 @Module({
     imports: [
@@ -16,6 +18,8 @@ import { SystemSettingsModule } from './settings/system-settings.module';
         SuperAdminUsersModule,
         SuperAdminAuditModule,
         SystemSettingsModule,
+        SuperAdminPaymentsModule,
+        SuperAdminReservationsModule,
     ],
     exports: [
         SuperAdminCentersModule,
@@ -25,6 +29,8 @@ import { SystemSettingsModule } from './settings/system-settings.module';
         SuperAdminUsersModule,
         SuperAdminAuditModule,
         SystemSettingsModule,
+        SuperAdminPaymentsModule,
+        SuperAdminReservationsModule,
     ],
 })
 export class SuperAdminModule { }
