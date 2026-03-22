@@ -251,7 +251,7 @@ export class SettingsService {
             }
         }
 
-        return this.prisma.landingPage.upsert({
+        const result = await this.prisma.landingPage.upsert({
             where: { ctCenterId },
             create: {
                 ctCenterId,
@@ -271,6 +271,22 @@ export class SettingsService {
                 ...(domain !== undefined && { customDomain: domain }),
             },
         });
+
+        // Trigger SSL generation asynchronously if a domain is present and it's published
+        if (domain && result.isPublished) {
+            try {
+                fetch('http://host.docker.internal:9000/hooks/generate-ssl', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subdomain: domain })
+                }).catch(err => console.error('Failed to trigger SSL webhook:', err.message));
+                console.log(`Triggered SSL webhook for subdomain: ${domain}`);
+            } catch (err) {
+                console.error('Failed to initiate SSL webhook fetch:', err);
+            }
+        }
+
+        return result;
     }
 
     async getTrash(ctCenterId: string) {
