@@ -447,6 +447,8 @@ model Reservation {
   report       Json?
   reminderSent Boolean           @default(false) @map("reminder_sent")
   bookingCode  String?           @unique @map("booking_code")
+  source       String?           @default("DASHBOARD")
+  price        Decimal?          @db.Decimal(10, 2)
 
   ctCenter CTCenter  @relation(fields: [ctCenterId], references: [id])
   client   Client    @relation(fields: [clientId], references: [id])

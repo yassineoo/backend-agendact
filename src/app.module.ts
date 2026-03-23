@@ -22,6 +22,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { EmailModule } from './email/email.module';
 import { EventsModule } from './events/events.module';
 import { PrestationsModule } from './prestations/prestations.module';
+import { PublicBookingModule } from './public-booking/public-booking.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { PrestationsModule } from './prestations/prestations.module';
     NotificationsModule,
     EmailModule,
     EventsModule,
+    PublicBookingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
