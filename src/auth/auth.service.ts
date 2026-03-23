@@ -22,6 +22,7 @@ export interface TokenResponse {
         ctCenterId?: string;
         ctCenterName?: string;
         isSuperAdmin?: boolean;
+        isApproved?: boolean;
     };
 }
 
@@ -87,6 +88,63 @@ export class AuthService {
 
         const hashedPassword = await bcrypt.hash(dto.password, 10);
 
+        // If centerName is provided, create a new CT center + CT_ADMIN user
+        if (dto.centerName) {
+            const slug = dto.centerName
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '')
+                + '-' + Date.now().toString(36);
+
+            const user = await this.prisma.user.create({
+                data: {
+                    email: dto.email,
+                    password: hashedPassword,
+                    firstName: dto.firstName,
+                    lastName: dto.lastName,
+                    phone: dto.phone,
+                    role: UserRole.CT_ADMIN,
+                    isActive: true,
+                },
+            });
+
+            const center = await this.prisma.cTCenter.create({
+                data: {
+                    name: dto.centerName,
+                    slug,
+                    address: '',
+                    city: '',
+                    postalCode: '',
+                    phone: dto.phone || '',
+                    email: dto.email,
+                    ownerId: user.id,
+                    isApproved: false, // Requires super admin approval
+                },
+            });
+
+            // Link user to center
+            await this.prisma.user.update({
+                where: { id: user.id },
+                data: { ctCenterId: center.id },
+            });
+
+            await this.prisma.userInCTCenter.create({
+                data: {
+                    userId: user.id,
+                    ctCenterId: center.id,
+                    role: UserRole.CT_ADMIN,
+                },
+            });
+
+            const fullUser = await this.prisma.user.findUnique({
+                where: { id: user.id },
+                include: { ctCenter: true },
+            });
+
+            return this.generateTokens(fullUser);
+        }
+
+        // Default: create a regular CLIENT user (no center)
         const user = await this.prisma.user.create({
             data: {
                 email: dto.email,
@@ -432,6 +490,7 @@ export class AuthService {
                 ctCenterId: user.ctCenterId || undefined,
                 ctCenterName: user.ctCenter?.name,
                 isSuperAdmin: user.isSuperAdmin || false,
+                isApproved: user.ctCenter?.isApproved ?? true,
             },
         };
     }

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import * as path from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -23,6 +25,7 @@ import { EmailModule } from './email/email.module';
 import { EventsModule } from './events/events.module';
 import { PrestationsModule } from './prestations/prestations.module';
 import { PublicBookingModule } from './public-booking/public-booking.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -52,6 +55,11 @@ import { PublicBookingModule } from './public-booking/public-booking.module';
     EmailModule,
     EventsModule,
     PublicBookingModule,
+    UploadsModule,
+    ServeStaticModule.forRoot({
+      rootPath: path.join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
   ],
   controllers: [AppController],
   providers: [AppService],

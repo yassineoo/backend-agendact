@@ -32,6 +32,10 @@ export class RegisterDto {
     @IsOptional()
     @IsString()
     phone?: string;
+
+    @IsOptional()
+    @IsString()
+    centerName?: string;
 }
 
 export class RefreshTokenDto {

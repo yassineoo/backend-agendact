@@ -196,6 +196,15 @@ export class SuperAdminCentersService {
         });
     }
 
+    async approve(id: string) {
+        await this.findOne(id);
+
+        return this.prisma.cTCenter.update({
+            where: { id },
+            data: { isApproved: true },
+        });
+    }
+
     async remove(id: string) {
         await this.findOne(id);
 

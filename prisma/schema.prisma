@@ -211,6 +211,7 @@ model CTCenter {
   currency       String  @default("EUR")
   openingHours   Json?   @map("opening_hours")
   isActive       Boolean @default(true) @map("is_active")
+  isApproved     Boolean @default(false) @map("is_approved")
 
   // Stripe
   stripeCustomerId String? @unique @map("stripe_customer_id")

@@ -42,6 +42,11 @@ export class SuperAdminCentersController {
         return this.centersService.toggleActive(id);
     }
 
+    @Patch(':id/approve')
+    async approve(@Param('id') id: string) {
+        return this.centersService.approve(id);
+    }
+
     @Delete(':id')
     async remove(@Param('id') id: string) {
         await this.centersService.remove(id);
