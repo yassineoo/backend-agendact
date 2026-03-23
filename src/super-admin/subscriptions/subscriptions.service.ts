@@ -65,7 +65,7 @@ export class SuperAdminSubscriptionsService {
     async create(dto: any) {
         return this.prisma.subscription.create({
             data: {
-                ctCenterId: dto.centerId,
+                ctCenterId: dto.ctCenterId,
                 planId: dto.planId,
                 status: 'ACTIVE',
                 startDate: new Date(),
